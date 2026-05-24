@@ -1,0 +1,16 @@
+{
+  "namespace": "http://usine.lab/api",
+  "name": "api1",
+  "objects": {
+    "ProcessCuve": {
+      "Niveau": {"type": "Double", "writable": false, "initial": 0.0},
+      "Temperature": {"type": "Double", "writable": false, "initial": 20.0},
+      "VanneRemplissage": {"type": "Boolean", "writable": true, "initial": false},
+      "Chauffage": {"type": "Boolean", "writable": true, "initial": false},
+      "PompeVidange": {"type": "Boolean", "writable": true, "initial": false},
+      "ConsigneTemp": {"type": "Double", "writable": true, "initial": 45.0},
+      "ModeAuto": {"type": "Boolean", "writable": true, "initial": false},
+      "Marche": {"type": "Boolean", "writable": true, "initial": false}
+    }
+  }
+}

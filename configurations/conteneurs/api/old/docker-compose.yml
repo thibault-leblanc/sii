@@ -1,0 +1,19 @@
+services:
+  automate_api:
+    build: .
+    container_name: api1
+    restart: unless-stopped
+    environment:
+      - SCADA_PROTOCOL=OPCUA
+      - IO_SIMULATOR_IP=192.168.20.10
+    networks:
+      vlan20:
+        ipv4_address: 192.168.20.20
+      vlan30:
+        ipv4_address: 192.168.30.20
+
+networks:
+  vlan20:
+    external: true
+  vlan30:
+    external: true

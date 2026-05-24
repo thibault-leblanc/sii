@@ -1,0 +1,18 @@
+services:
+  api_rincage:
+    image: api-rincage-image:latest
+    container_name: api-rincage
+    restart: unless-stopped
+    volumes:
+      - ./config_api.json:/app/config_api.json
+    networks:
+      vlan20:
+        ipv4_address: 192.168.20.20  # IP pour interroger le Modbus
+      vlan30:
+        ipv4_address: 192.168.30.20  # IP pour écouter le SCADA en OPC-UA
+
+networks:
+  vlan20:
+    external: true
+  vlan30:
+    external: true

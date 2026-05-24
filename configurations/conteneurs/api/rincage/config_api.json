@@ -1,0 +1,42 @@
+{
+  "plc_settings": {
+    "scan_cycle_ms": 100,
+    "name": "api_rincage"
+  },
+  "modbus_client": {
+    "target_host": "192.168.20.10",
+    "target_port": 502
+  },
+  "opcua_server": {
+    "bind_ip": "0.0.0.0",
+    "endpoint_ip": "192.168.30.20",
+    "port": 4840,
+    "namespace": "http://usine.automate.local"
+  },
+  "opcua_mapping": {
+    "Systeme": {
+      "EnMarche": {"type": "Boolean", "initial": false, "writable": true},
+      "ModeAuto": {"type": "Boolean", "initial": true, "writable": true},
+      "Defaut": {"type": "Boolean", "initial": false, "writable": false},
+      "AcquittementDefaut": {"type": "Boolean", "initial": false, "writable": true},
+      "ConnexionSimuOk": {"type": "Boolean", "initial": false, "writable": false},
+      "TempsCycleReelMs": {"type": "Double", "initial": 0.0, "writable": false}
+    },
+    "Commandes_Manuelles": {
+      "ManuPompe": {"type": "Boolean", "initial": false, "writable": true},
+      "ManuVanne": {"type": "Boolean", "initial": false, "writable": true},
+      "ManuTambour": {"type": "Boolean", "initial": false, "writable": true}
+    },
+    "Cuve": {
+      "NiveauAcide": {"type": "Double", "initial": 0.0, "writable": false},
+      "QualiteAcide": {"type": "Double", "initial": 7.0, "writable": false},
+      "PompeActive": {"type": "Boolean", "initial": false, "writable": false},
+      "VanneActive": {"type": "Boolean", "initial": false, "writable": false}
+    },
+    "Mecanique": {
+      "TambourTourne": {"type": "Boolean", "initial": false, "writable": false},
+      "ConvoyeurEntree": {"type": "Boolean", "initial": false, "writable": false},
+      "ConvoyeurSortie": {"type": "Boolean", "initial": false, "writable": false}
+    }
+  }
+}

@@ -1,0 +1,18 @@
+services:
+  test_opcua:
+    image: opcua-srv-image:latest
+    container_name: test-opcua-srv
+    restart: unless-stopped
+    volumes:
+      - ./config_opcua.json:/app/config_opcua.json
+    networks:
+      vlan20:
+        ipv4_address: 192.168.20.30
+      vlan30:
+        ipv4_address: 192.168.30.30
+
+networks:
+  vlan20:
+    external: true
+  vlan30:
+    external: true

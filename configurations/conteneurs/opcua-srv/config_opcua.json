@@ -1,0 +1,20 @@
+{
+  "server": {
+    "ip": "192.168.30.30",
+    "port": 4840,
+    "endpoint_path": "/freeopcua/server/",
+    "name": "Serveur_Test_1",
+    "security": "None",
+    "namespace": "http://plateforme.local"
+  },
+  "objects": {
+    "MachineTest": {
+      "Temperature": {"type": "Double", "initial": 25.0, "writable": false},
+      "EnMarche": {"type": "Boolean", "initial": true, "writable": true}
+    },
+    "Convoyeur": {
+      "Vitesse": {"type": "Double", "initial": 1.5, "writable": true},
+      "Defaut": {"type": "Boolean", "initial": false, "writable": false}
+    }
+  }
+}
