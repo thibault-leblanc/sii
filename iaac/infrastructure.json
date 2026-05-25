@@ -2,27 +2,28 @@
   "metadonnes": {
     "nom_plateforme": "SII_PLATEFORME",
     "version": "1.0.0",
-    "derniere_mise_a_jour": "2026-05-25"
+    "derniere_mise_a_jour": "2026-05-25",
+    "description": "Ontologie IaaC Système d'Information Industriel"
   },
   "reseaux_globaux": {
     "VLAN10": {
       "nom": "VLAN10",
-      "id": "10",
-      "description": "Réseau Infrastructure",
+      "id": 10,
+      "description": "Réseau Infrastructure & Administration",
       "sous_reseau": "192.168.10.0/24",
       "passerelle": "192.168.10.1"
     },
     "VLAN20": {
       "nom": "VLAN20",
-      "id": "20",
-      "description": "Réseau CIM1-CIM2",
+      "id": 20,
+      "description": "Réseau Terrain (Modbus/IO) CIM1-CIM2",
       "sous_reseau": "192.168.20.0/24",
       "passerelle": "192.168.20.1"
     },
     "VLAN30": {
       "nom": "VLAN30",
-      "id": "30",
-      "description": "Réseau CIM2-CIM3",
+      "id": 30,
+      "description": "Réseau Supervision (OPC-UA/SCADA) CIM2-CIM3",
       "sous_reseau": "192.168.30.0/24",
       "passerelle": "192.168.30.1"
     }
@@ -42,7 +43,7 @@
     "commutateur_principal": {
       "type": "commutateur",
       "nom": "commutateur_principal", 
-      "fonction": "Routage inter-VLAN et distribution",
+      "fonction": "Distribution",
       "marque": "D-Link",
       "modele": "DGS-1210-10MP Gigabit Ethernet Switch",
       "boot_version": "1.00.010",
@@ -56,7 +57,7 @@
       "ports": {
         "1": { "lien": "tbd", "vlan_pvid":"1", "description":"", "type": "cuivre" },
         "2": { "lien": "tbd", "vlan_pvid":"10", "description":"réserve admin", "type": "cuivre" },
-        "3": { "lien": "tbd", "vlan_pvid":"1", "description":"trunk pi31", "type": "cuivre" },
+        "3": { "lien": "pi31_eth0", "vlan_pvid":"1", "description":"trunk pi31", "type": "cuivre" },
         "4": { "lien": "tbd", "vlan_pvid":"1", "description":"", "type": "cuivre" },
         "5": { "lien": "tbd", "vlan_pvid":"1", "description":"", "type": "cuivre" },
         "6": { "lien": "tbd", "vlan_pvid":"10", "description":"VLAN10", "type": "cuivre" },
@@ -74,42 +75,52 @@
     },
     "pi31": {
       "type": "raspberry_pi_3b",
-      "fonction": "Hôte de simulation de procédé et contrôle",
+      "nom": "pi31",
+      "fonction": "Hôte de calcul Edge (Docker Host)",
       "systeme_exploitation": "Ubuntu Server 26.04",
       "interfaces_physiques": {
-       "eth0": {
+        "eth0": {
           "mode": "trunk",
-          "vlans_autorises": [20, 30],
-          "ip_gestion": "192.168.1.31"
+          "reseaux_autorises": ["VLAN10", "VLAN20", "VLAN30"],
+          "ip_gestion": "192.168.1.31" 
         }
       },
-      "arborescence_specifique": {
+      "arborescence_hote": {
         "racine_projets": "/home/pi31/production",
-        "dossiers": ["api/rincage", "simulation/rincage"]
+        "stockage_persistant": "/var/lib/docker/volumes"
       },
-      "ressources_logiques": {
-        "sim-rincage-modbus": {
-          "technologie": "docker_container",
-          "fonction": "Simulation physique du tambour de rinçage",
-          "depot_source": "git@github.com:tl-eblanc/simu-rincage.git",
-          "reseau_virtuel": {
-            "type": "macvlan",
-            "interface_parente": "eth0.20",
-            "vlan": 20,
-            "ip": "192.168.20.10"
-          }
-        },
-        "api-rincage": {
-          "technologie": "docker_container",
-          "fonction": "Automate logique de contrôle et serveur OPC-UA",
-          "depot_source": "git@github.com:tl-eblanc/api-rincage.git",
-          "reseau_virtuel": {
-            "type": "macvlan_double",
-            "interfaces": {
-              "vlan20": { "interface_parente": "eth0.20", "ip": "192.168.20.20" },
-              "vlan30": { "interface_parente": "eth0.30", "ip": "192.168.30.20" }
-            }
-          }
+      "charges_logiques_nominales": [
+        "sim-rincage-modbus",
+        "api-rincage"
+      ]
+    }
+  },
+  "ressources_logiques": {
+    "sim-rincage-modbus": {
+      "type": "conteneur_docker",
+      "nom": "sim-rincage-modbus",
+      "fonction": "Simulation physique du tambour de rinçage",
+      "depot_source": "https://github.com/thibault-leblanc/sii/tree/main/configurations/conteneurs/sim/rincage",
+      "chemin_deploiement": "simulation/rincage",
+      "reseau_virtuel": {
+        "type": "macvlan",
+        "attachement_hote": "eth0",
+        "vlan_cible": "VLAN20",
+        "ip_statique": "192.168.20.10"
+      }
+    },
+    "api-rincage": {
+      "type": "conteneur_docker",
+      "nom": "api-rincage",
+      "fonction": "Automate logique de contrôle et serveur OPC-UA",
+      "depot_source": "https://github.com/thibault-leblanc/sii/tree/main/configurations/conteneurs/api/rincage",
+      "chemin_deploiement": "api/rincage",
+      "reseau_virtuel": {
+        "type": "macvlan_multiple",
+        "attachement_hote": "eth0",
+        "interfaces": {
+          "interface_terrain": { "vlan_cible": "VLAN20", "ip_statique": "192.168.20.20" },
+          "interface_scada": { "vlan_cible": "VLAN30", "ip_statique": "192.168.30.20" }
         }
       }
     }

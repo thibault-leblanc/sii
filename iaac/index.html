@@ -1,0 +1,150 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Ontologie IaaC - Plateforme SII</title>
+    
+    <script type="text/javascript" src="https://unpkg.com/vis-network/standalone/umd/vis-network.min.js"></script>
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/jsoneditor/9.10.0/jsoneditor.min.css" rel="stylesheet" type="text/css">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jsoneditor/9.10.0/jsoneditor.min.js"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap" rel="stylesheet">
+    
+    <style>
+        :root { --primary: #0f766e; --bg: #f8fafc; --surface: #ffffff; }
+        body { font-family: 'Inter', sans-serif; background-color: var(--bg); margin: 0; display: flex; flex-direction: column; height: 100vh; }
+        header { background: var(--surface); padding: 15px 30px; box-shadow: 0 1px 3px rgba(0,0,0,0.1); display: flex; justify-content: space-between; align-items: center; z-index: 10; }
+        h1 { margin: 0; font-size: 1.25rem; color: var(--primary); }
+        .toolbar button { background: var(--primary); color: white; border: none; padding: 8px 16px; border-radius: 6px; cursor: pointer; font-weight: 600; margin-left: 10px; }
+        main { flex: 1; position: relative; }
+        
+        /* Conteneurs de vues */
+        #network-view { width: 100%; height: 100%; position: absolute; top: 0; left: 0; background: #ffffff; }
+        #editor-view { width: 100%; height: 100%; position: absolute; top: 0; left: 0; display: none; background: #ffffff; }
+        
+        #error-banner { background: #fee2e2; color: #991b1b; padding: 10px; text-align: center; display: none; }
+    </style>
+</head>
+<body>
+
+    <div id="error-banner">⚠️ Erreur CORS : Lancez un serveur web local (ex: python -m http.server 8000)</div>
+
+    <header>
+        <h1>📡 Ontologie IaaC - Plateforme SII</h1>
+        <div class="toolbar">
+            <button onclick="toggleVue()" id="btn-vue">🛠️ Voir le Code JSON</button>
+            <button onclick="sauvegarder()">💾 Exporter Manifeste</button>
+        </div>
+    </header>
+
+    <main>
+        <div id="network-view"></div>
+        
+        <div id="editor-view"></div>
+    </main>
+
+    <script>
+        let isGraphView = true;
+        let network = null;
+        let editor = null;
+        let currentData = {};
+
+        // === GESTION DE L'INTERFACE ===
+        function toggleVue() {
+            isGraphView = !isGraphView;
+            document.getElementById('network-view').style.display = isGraphView ? 'block' : 'none';
+            document.getElementById('editor-view').style.display = isGraphView ? 'none' : 'block';
+            document.getElementById('btn-vue').innerText = isGraphView ? '🛠️ Voir le Code JSON' : '👁️ Voir la Topologie';
+            
+            if (isGraphView && editor) {
+                // Si on revient sur le graphe, on met à jour avec le JSON potentiellement modifié
+                try {
+                    currentData = editor.get();
+                    dessinerGraphe(currentData);
+                } catch(e) { console.warn("JSON invalide, le graphe n'a pas été mis à jour."); }
+            }
+        }
+
+        // === DESSIN DU GRAPHE VIS.JS ===
+        function dessinerGraphe(data) {
+            const nodes = [];
+            const edges = [];
+
+            // 1. Dessiner les Réseaux (VLANs)
+            if(data.reseaux_globaux) {
+                for (const [key, net] of Object.entries(data.reseaux_globaux)) {
+                    nodes.push({ id: key, label: `${key}\n${net.sous_reseau}`, group: 'reseau', shape: 'cloud' });
+                }
+            }
+
+            // 2. Dessiner les Ressources Physiques
+            if(data.ressources_physiques) {
+                for (const [key, phys] of Object.entries(data.ressources_physiques)) {
+                    nodes.push({ id: key, label: `🖥️ ${key}\n${phys.ip_gestion || ''}`, group: 'physique', shape: 'box' });
+                    
+                    // Lier les charges logiques à leur hôte physique
+                    if (phys.charges_logiques_nominales) {
+                        phys.charges_logiques_nominales.forEach(charge => {
+                            edges.push({ from: charge, to: key, dashes: true, label: 'Héberge sur' });
+                        });
+                    }
+                }
+            }
+
+            // 3. Dessiner les Ressources Logiques
+            if(data.ressources_logiques) {
+                for (const [key, logi] of Object.entries(data.ressources_logiques)) {
+                    nodes.push({ id: key, label: `📦 ${key}\n${logi.ip || ''}`, group: 'logique', shape: 'hexagon' });
+                    
+                    // Lier le logique à son VLAN
+                    if (logi.vlan) {
+                        edges.push({ from: key, to: `VLAN${logi.vlan}`, color: '#0ea5e9', width: 2 });
+                    }
+                }
+            }
+
+            const container = document.getElementById('network-view');
+            const graphData = { nodes: new vis.DataSet(nodes), edges: new vis.DataSet(edges) };
+            const options = {
+                groups: {
+                    reseau: { color: { background: '#e0f2fe', border: '#0284c7' }, font: { color: '#0369a1' } },
+                    physique: { color: { background: '#f1f5f9', border: '#475569' }, font: { color: '#1e293b' }, borderWidth: 2 },
+                    logique: { color: { background: '#f0fdf4', border: '#16a34a' }, font: { color: '#15803d' } }
+                },
+                physics: { stabilization: true, barnesHut: { gravitationalConstant: -3000 } }
+            };
+            
+            if(network) network.destroy();
+            network = new vis.Network(container, graphData, options);
+        }
+
+        // === INITIALISATION ===
+        fetch('infrastructure.json')
+            .then(res => { if(!res.ok) throw new Error(); return res.json(); })
+            .then(data => {
+                currentData = data;
+                
+                // Init Éditeur JSON
+                editor = new JSONEditor(document.getElementById("editor-view"), { mode: 'code' });
+                editor.set(currentData);
+                
+                // Init Graphe
+                dessinerGraphe(currentData);
+            })
+            .catch(() => {
+                document.getElementById('error-banner').style.display = 'block';
+            });
+
+        // === EXPORT ===
+        function sauvegarder() {
+            if(!editor) return;
+            const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(isGraphView ? currentData : editor.get(), null, 2));
+            const dl = document.createElement('a');
+            dl.setAttribute("href", dataStr);
+            dl.setAttribute("download", "infrastructure.json");
+            document.body.appendChild(dl);
+            dl.click(); dl.remove();
+        }
+    </script>
+</body>
+</html>
