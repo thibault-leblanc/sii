@@ -41,7 +41,7 @@
     },
     "commutateur_principal": {
       "type": "commutateur",
-      "nom": "commutateur_principal",
+      "nom": "commutateur_principal", 
       "fonction": "Routage inter-VLAN et distribution",
       "marque": "D-Link",
       "modele": "DGS-1210-10MP Gigabit Ethernet Switch",
@@ -54,30 +54,30 @@
       "masque": "255.255.255.0",
       "passerelle": "192.168.10.1",
       "ports": {
-        "1": { "lien": "tbd", "type": "cuivre" },
-        "2": { "lien": "tbd", "type": "cuivre" },
-        "3": { "lien": "tbd", "type": "cuivre" },
-        "4": { "lien": "tbd", "type": "cuivre" },
-        "5": { "lien": "tbd", "type": "cuivre" },
-        "6": { "lien": "tbd", "type": "cuivre" },
-        "7": { "lien": "tbd", "type": "cuivre" },
-        "8": { "lien": "tbd", "type": "cuivre" },
-        "9": { "lien": "tbd", "type": "optique" },
-        "10": { "lien": "tbd", "type": "optique" }
+        "1": { "lien": "tbd", "vlan_pvid":"1", "description":"", "type": "cuivre" },
+        "2": { "lien": "tbd", "vlan_pvid":"10", "description":"réserve admin", "type": "cuivre" },
+        "3": { "lien": "tbd", "vlan_pvid":"1", "description":"trunk pi31", "type": "cuivre" },
+        "4": { "lien": "tbd", "vlan_pvid":"1", "description":"", "type": "cuivre" },
+        "5": { "lien": "tbd", "vlan_pvid":"1", "description":"", "type": "cuivre" },
+        "6": { "lien": "tbd", "vlan_pvid":"10", "description":"VLAN10", "type": "cuivre" },
+        "7": { "lien": "tbd", "vlan_pvid":"20", "description":"VLAN20", "type": "cuivre" },
+        "8": { "lien": "tbd", "vlan_pvid":"30", "description":"VLAN30", "type": "cuivre" },
+        "9": { "lien": "tbd", "vlan_pvid":"1", "description":"", "type": "optique" },
+        "10": { "lien": "tbd", "vlan_pvid":"1", "description":"", "type": "optique" }
       },
       "VLAN": {
-        "default": {"id":"1", "nom":"default", "untagged":[1], "tagged": [], "not_member":[]},
-        "VLAN10": {"id":"10", "nom":"VLAN10", "untagged":[2, 6], "tagged": [], "not_member":[]},
-        "VLAN20": {"id":"20", "nom":"VLAN20", "untagged":[7], "tagged": [], "not_member":[]},
-        "VLAN30": {"id":"30", "nom":"VLAN30", "untagged":[8], "tagged": [], "not_member":[]},
+        "default": {"id":"1", "nom":"default", "untagged":[1], "tagged": []},
+        "VLAN10": {"id":"10", "nom":"VLAN10", "untagged":[2, 6], "tagged": [3]},
+        "VLAN20": {"id":"20", "nom":"VLAN20", "untagged":[7], "tagged": [3]},
+        "VLAN30": {"id":"30", "nom":"VLAN30", "untagged":[8], "tagged": [3]}
       }
     },
     "pi31": {
       "type": "raspberry_pi_3b",
       "fonction": "Hôte de simulation de procédé et contrôle",
-      "systeme_exploitation": "Debian Bookworm (Arm64)",
+      "systeme_exploitation": "Ubuntu Server 26.04",
       "interfaces_physiques": {
-        "eth0": {
+       "eth0": {
           "mode": "trunk",
           "vlans_autorises": [20, 30],
           "ip_gestion": "192.168.1.31"
