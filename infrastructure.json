@@ -1,0 +1,117 @@
+{
+  "metadonnes": {
+    "nom_plateforme": "SII_PLATEFORME",
+    "version": "1.0.0",
+    "derniere_mise_a_jour": "2026-05-25"
+  },
+  "reseaux_globaux": {
+    "VLAN10": {
+      "nom": "VLAN10",
+      "id": "10",
+      "description": "Réseau Infrastructure",
+      "sous_reseau": "192.168.10.0/24",
+      "passerelle": "192.168.10.1"
+    },
+    "VLAN20": {
+      "nom": "VLAN20",
+      "id": "20",
+      "description": "Réseau CIM1-CIM2",
+      "sous_reseau": "192.168.20.0/24",
+      "passerelle": "192.168.20.1"
+    },
+    "VLAN30": {
+      "nom": "VLAN30",
+      "id": "30",
+      "description": "Réseau CIM2-CIM3",
+      "sous_reseau": "192.168.30.0/24",
+      "passerelle": "192.168.30.1"
+    }
+  },
+  "ressources_physiques": {
+    "pare_feu_principal": {
+      "type": "pare-feu",
+      "nom": "pare_feu_principal",
+      "fonction": "Segmentation infrastructure-exterieur",
+      "interfaces": {
+        "wan": { "nom": "WAN", "ip": "192.168.1.197" },
+        "vlan10": { "nom": "VLAN10", "ip": "192.168.10.1" },
+        "vlan20": { "nom": "VLAN20", "ip": "192.168.20.1" },
+        "vlan30": { "nom": "VLAN30", "ip": "192.168.30.1" }
+      }
+    },
+    "commutateur_principal": {
+      "type": "commutateur",
+      "nom": "commutateur_principal",
+      "fonction": "Routage inter-VLAN et distribution",
+      "marque": "D-Link",
+      "modele": "DGS-1210-10MP Gigabit Ethernet Switch",
+      "boot_version": "1.00.010",
+      "firmware_version": "6.10.007",
+      "hardware_version": "F1",
+      "serial_number": "TM0C107001061",
+      "MAC": "34-0A-33-0F-09-90",
+      "ip": "192.168.10.90",
+      "masque": "255.255.255.0",
+      "passerelle": "192.168.10.1",
+      "ports": {
+        "1": { "lien": "tbd", "type": "cuivre" },
+        "2": { "lien": "tbd", "type": "cuivre" },
+        "3": { "lien": "tbd", "type": "cuivre" },
+        "4": { "lien": "tbd", "type": "cuivre" },
+        "5": { "lien": "tbd", "type": "cuivre" },
+        "6": { "lien": "tbd", "type": "cuivre" },
+        "7": { "lien": "tbd", "type": "cuivre" },
+        "8": { "lien": "tbd", "type": "cuivre" },
+        "9": { "lien": "tbd", "type": "optique" },
+        "10": { "lien": "tbd", "type": "optique" }
+      },
+      "VLAN": {
+        "default": {"id":"1", "nom":"default", "untagged":[1], "tagged": [], "not_member":[]},
+        "VLAN10": {"id":"10", "nom":"VLAN10", "untagged":[2, 6], "tagged": [], "not_member":[]},
+        "VLAN20": {"id":"20", "nom":"VLAN20", "untagged":[7], "tagged": [], "not_member":[]},
+        "VLAN30": {"id":"30", "nom":"VLAN30", "untagged":[8], "tagged": [], "not_member":[]},
+      }
+    },
+    "pi31": {
+      "type": "raspberry_pi_3b",
+      "fonction": "Hôte de simulation de procédé et contrôle",
+      "systeme_exploitation": "Debian Bookworm (Arm64)",
+      "interfaces_physiques": {
+        "eth0": {
+          "mode": "trunk",
+          "vlans_autorises": [20, 30],
+          "ip_gestion": "192.168.1.31"
+        }
+      },
+      "arborescence_specifique": {
+        "racine_projets": "/home/pi31/production",
+        "dossiers": ["api/rincage", "simulation/rincage"]
+      },
+      "ressources_logiques": {
+        "sim-rincage-modbus": {
+          "technologie": "docker_container",
+          "fonction": "Simulation physique du tambour de rinçage",
+          "depot_source": "git@github.com:tl-eblanc/simu-rincage.git",
+          "reseau_virtuel": {
+            "type": "macvlan",
+            "interface_parente": "eth0.20",
+            "vlan": 20,
+            "ip": "192.168.20.10"
+          }
+        },
+        "api-rincage": {
+          "technologie": "docker_container",
+          "fonction": "Automate logique de contrôle et serveur OPC-UA",
+          "depot_source": "git@github.com:tl-eblanc/api-rincage.git",
+          "reseau_virtuel": {
+            "type": "macvlan_double",
+            "interfaces": {
+              "vlan20": { "interface_parente": "eth0.20", "ip": "192.168.20.20" },
+              "vlan30": { "interface_parente": "eth0.30", "ip": "192.168.30.20" }
+            }
+          }
+        }
+      }
+    }
+  }
+}
