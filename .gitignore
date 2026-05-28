@@ -1,2 +1,3 @@
 *.tar 
 *.tar.old 
+/configurations/conteneurs/scada-dev/fuxa_appdata
