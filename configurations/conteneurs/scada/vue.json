@@ -1,0 +1,197 @@
+{
+  "id": "view_hydraulique_parallele",
+  "name": "Supervision Distribution",
+  "width": 1200,
+  "height": 700,
+  "background": "#1e1e1e",
+  "items": [
+    {
+      "id": "title_1",
+      "type": "Label",
+      "x": 40,
+      "y": 30,
+      "width": 500,
+      "height": 40,
+      "text": "Synoptique : Distribution Parallèle",
+      "textColor": "#ffffff",
+      "fontSize": 24
+    },
+    {
+      "id": "tank_1",
+      "type": "LinearGauge",
+      "name": "Réservoir Source A",
+      "x": 80,
+      "y": 120,
+      "width": 120,
+      "height": 180,
+      "property": { "variableId": "var_niv_tk1", "min": 0, "max": 100, "color": "#00aaff", "fill": true }
+    },
+    {
+      "id": "lbl_tk1",
+      "type": "Label",
+      "x": 80, "y": 310, "width": 120, "height": 20,
+      "text": "Réservoir A", "textColor": "#ffffff", "align": "center"
+    },
+    {
+      "id": "tank_2",
+      "type": "LinearGauge",
+      "name": "Réservoir Source B",
+      "x": 80,
+      "y": 420,
+      "width": 120,
+      "height": 180,
+      "property": { "variableId": "var_niv_tk2", "min": 0, "max": 100, "color": "#00aaff", "fill": true }
+    },
+    {
+      "id": "lbl_tk2",
+      "type": "Label",
+      "x": 80, "y": 610, "width": 120, "height": 20,
+      "text": "Réservoir B", "textColor": "#ffffff", "align": "center"
+    },
+    {
+      "id": "pipe_line_a",
+      "type": "Pipe",
+      "x": 200,
+      "y": 200,
+      "width": 300,
+      "height": 12,
+      "property": { "color": "#444444", "fill": "#00aaff", "border": "#666666" }
+    },
+    {
+      "id": "pipe_line_b",
+      "type": "Pipe",
+      "x": 200,
+      "y": 500,
+      "width": 300,
+      "height": 12,
+      "property": { "color": "#444444", "fill": "#00aaff", "border": "#666666" }
+    },
+    {
+      "id": "pipe_collector",
+      "type": "Pipe",
+      "x": 500,
+      "y": 200,
+      "width": 12,
+      "height": 312,
+      "property": { "color": "#444444", "fill": "#00aaff", "border": "#666666" }
+    },
+    {
+      "id": "pipe_line_c",
+      "type": "Pipe",
+      "x": 500,
+      "y": 350,
+      "width": 300,
+      "height": 12,
+      "property": { "color": "#444444", "fill": "#00aaff", "border": "#666666" }
+    },
+    {
+      "id": "valve_1",
+      "type": "Valve",
+      "name": "Vanne A",
+      "x": 320,
+      "y": 180,
+      "width": 50,
+      "height": 50,
+      "property": { "variableId": "etat_vanne_1" },
+      "animColor": {
+        "variableId": "etat_vanne_1",
+        "valueMap": { "false": "#ffcc00", "true": "#00ff00" }
+      }
+    },
+    {
+      "id": "btn_valve_1",
+      "type": "Button",
+      "x": 300, "y": 240, "width": 90, "height": 30,
+      "text": "Cmd Vanne A",
+      "events": { "click": { "action": "toggleValue", "variableId": "cmd_vanne_1" } }
+    },
+    {
+      "id": "alarm_v1",
+      "type": "Shape",
+      "x": 335, "y": 155, "width": 20, "height": 20,
+      "property": { "shape": "circle", "color": "#333333" },
+      "animColor": {
+        "variableId": "defaut_vanne_1",
+        "valueMap": { "false": "#333333", "true": "#ff0000" }
+      }
+    },
+    {
+      "id": "valve_2",
+      "type": "Valve",
+      "name": "Vanne B",
+      "x": 320,
+      "y": 480,
+      "width": 50,
+      "height": 50,
+      "property": { "variableId": "etat_vanne_2" },
+      "animColor": {
+        "variableId": "etat_vanne_2",
+        "valueMap": { "false": "#ffcc00", "true": "#00ff00" }
+      }
+    },
+    {
+      "id": "btn_valve_2",
+      "type": "Button",
+      "x": 300, "y": 540, "width": 90, "height": 30,
+      "text": "Cmd Vanne B",
+      "events": { "click": { "action": "toggleValue", "variableId": "cmd_vanne_2" } }
+    },
+    {
+      "id": "alarm_v2",
+      "type": "Shape",
+      "x": 335, "y": 455, "width": 20, "height": 20,
+      "property": { "shape": "circle", "color": "#333333" },
+      "animColor": {
+        "variableId": "defaut_vanne_2",
+        "valueMap": { "false": "#333333", "true": "#ff0000" }
+      }
+    },
+    {
+      "id": "valve_3",
+      "type": "Valve",
+      "name": "Vanne Générale",
+      "x": 620,
+      "y": 330,
+      "width": 50,
+      "height": 50,
+      "property": { "variableId": "etat_vanne_3" },
+      "animColor": {
+        "variableId": "etat_vanne_3",
+        "valueMap": { "false": "#ffcc00", "true": "#00ff00" }
+      }
+    },
+    {
+      "id": "btn_valve_3",
+      "type": "Button",
+      "x": 600, "y": 390, "width": 90, "height": 30,
+      "text": "Cmd Vanne G.",
+      "events": { "click": { "action": "toggleValue", "variableId": "cmd_vanne_3" } }
+    },
+    {
+      "id": "alarm_v3",
+      "type": "Shape",
+      "x": 635, "y": 305, "width": 20, "height": 20,
+      "property": { "shape": "circle", "color": "#333333" },
+      "animColor": {
+        "variableId": "defaut_vanne_3",
+        "valueMap": { "false": "#333333", "true": "#ff0000" }
+      }
+    },
+    {
+      "id": "tank_3",
+      "type": "LinearGauge",
+      "name": "Réservoir Final",
+      "x": 800,
+      "y": 250,
+      "width": 150,
+      "height": 220,
+      "property": { "variableId": "var_niv_tk3", "min": 0, "max": 100, "color": "#00aaff", "fill": true }
+    },
+    {
+      "id": "lbl_tk3",
+      "type": "Label",
+      "x": 815, "y": 480, "width": 120, "height": 20,
+      "text": "Réservoir Final", "textColor": "#ffffff", "align": "center"
+    }
+  ]
+}
