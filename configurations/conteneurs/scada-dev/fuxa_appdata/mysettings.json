@@ -1,0 +1,37 @@
+{
+    "language": "fr",
+    "hideEditorOnboarding": false,
+    "editorSectionMessages": {
+        "hideDevicePluginsNotice": false,
+        "hideArMarkersNotice": false
+    },
+    "uiPort": 1881,
+    "secureEnabled": false,
+    "secretCode": "",
+    "tokenExpiresIn": "",
+    "broadcastAll": false,
+    "smtp": {
+        "host": "",
+        "port": 587,
+        "mailsender": "",
+        "username": ""
+    },
+    "daqstore": {
+        "type": "SQlite",
+        "host": "127.0.0.1",
+        "tableName": "meters",
+        "configurationString": "http::addr=localhost:9000;",
+        "credentials": {},
+        "retention": "year1"
+    },
+    "alarms": {
+        "retention": "year1"
+    },
+    "logs": {
+        "retention": "none"
+    },
+    "logFull": false,
+    "nodeRedEnabled": false,
+    "nodeRedAuthMode": "secure",
+    "swaggerEnabled": false
+}
