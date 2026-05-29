@@ -28,25 +28,28 @@ def executer_logique(entrees, memoire_interne):
             memoire_interne["defaut"] = False
 
     # Verrouillage : Si un défaut est actif, TOUT est coupé (Priorité absolue)
-    if memoire_interne.get("defaut", False):
-        return {
-            "cmd_pompe_acide": False, "cmd_vanne_vidange": False,
-            "cmd_moteur_tambour": False, "cmd_conv_entree": False, "cmd_conv_sortie": False
-        }
+    #if memoire_interne.get("defaut", False):
+    #    return {
+    #        "cmd_pompe_acide": False, "cmd_vanne_vidange": False,
+    #        "cmd_moteur_tambour": False, "cmd_conv_entree": False, "cmd_conv_sortie": False
+    #    }
+    defaut_actif = memoire_interne.get("defaut", False)
 
-    # --- 3. SÉLECTION DU MODE DE MARCHE ---
+
+# --- 3. SÉLECTION DU MODE DE MARCHE ---
     if mode_auto:
         # ==========================================
         # MODE AUTOMATIQUE
         # ==========================================
-        if not en_marche:
-            # Si le système n'est pas "En Marche", le process est figé
+        
+        # SÉCURITÉ : En AUTO, un défaut ou l'arrêt fige complètement le procédé
+        if defaut_actif or not en_marche:
             sorties["cmd_pompe_acide"] = False
             sorties["cmd_vanne_vidange"] = False
             sorties["cmd_moteur_tambour"] = False
             sorties["cmd_conv_entree"] = False
             sorties["cmd_conv_sortie"] = False
-            memoire_interne["mode_vidange"] = False # Reset du cycle de vidange
+            memoire_interne["mode_vidange"] = False 
         else:
             # --- A. Régulation du niveau (Hystérésis 40% - 80%) ---
             if niveau >= 80.0:
@@ -54,11 +57,10 @@ def executer_logique(entrees, memoire_interne):
             elif niveau <= 40.0:
                 sorties["cmd_pompe_acide"] = True
             else:
-                # Maintien de l'état précédent entre 40 et 80
                 sorties["cmd_pompe_acide"] = memoire_interne.get("cmd_pompe_acide", False)
 
             # --- B. Cycle de renouvellement d'acide (Qualité pH) ---
-            if qualite < 5.0:  # Le pH baisse (trop chargé)
+            if qualite < 5.0:
                 memoire_interne["mode_vidange"] = True
 
             if memoire_interne.get("mode_vidange", False):
@@ -67,7 +69,6 @@ def executer_logique(entrees, memoire_interne):
                 sorties["cmd_vanne_vidange"] = True
                 sorties["cmd_pompe_acide"] = False # Priorité à la purge
                 
-                # Fin de vidange quand la cuve est presque vide
                 if niveau <= 5.0:
                     memoire_interne["mode_vidange"] = False
             else:
@@ -76,17 +77,16 @@ def executer_logique(entrees, memoire_interne):
                 sorties["cmd_moteur_tambour"] = True
                 sorties["cmd_conv_entree"] = True
 
-            # Le convoyeur de sortie tourne pour évacuer tant que le tambour tourne
             sorties["cmd_conv_sortie"] = sorties.get("cmd_moteur_tambour", True)
             
     else:
         # ==========================================
         # MODE MANUEL (Maintenance)
         # ==========================================
-        # L'API applique bêtement les boutons du SCADA (le bouton EnMarche est ignoré)
+        # L'opérateur pilote directement, MÊME en cas de défaut (pour pouvoir dépanner)
         
-        # Interlock de sécurité logiciel : on empêche la pompe manuelle si le bac est plein (<95%)
-        if manu_pompe and niveau < 95.0:
+        # Ultime sécurité matérielle (Interlock) : impossible de forcer la pompe si l'alarme de débordement hurle
+        if manu_pompe and not alarme_debordement:
             sorties["cmd_pompe_acide"] = True
         else:
             sorties["cmd_pompe_acide"] = False
@@ -94,8 +94,6 @@ def executer_logique(entrees, memoire_interne):
         sorties["cmd_vanne_vidange"] = manu_vanne
         sorties["cmd_moteur_tambour"] = manu_tambour
         
-        # Le convoyeur d'entrée reste coupé en manuel pour éviter de bourrer.
-        # Le convoyeur de sortie tourne avec le tambour pour permettre de le vider manuellement.
         sorties["cmd_conv_entree"] = False
         sorties["cmd_conv_sortie"] = manu_tambour
 
