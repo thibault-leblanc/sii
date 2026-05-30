@@ -1,7 +1,7 @@
 services:
   simulateur_acide:
     image: simu-rincage-image:latest
-    container_name: sim-rincage-modbus
+    container_name: sim-rincage
     restart: unless-stopped
     volumes:
       - ./config_simu.json:/app/config_simu.json
