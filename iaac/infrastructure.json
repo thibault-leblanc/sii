@@ -68,7 +68,7 @@
       },
       "VLAN": {
         "default": {"id":"1", "nom":"default", "untagged":[1], "tagged": []},
-        "VLAN10": {"id":"10", "nom":"VLAN10", "untagged":[2, 6], "tagged": [3]},
+        "VLAN10": {"id":"10", "nom":"VLAN10", "untagged":[2, 6], "tagged": [3,4,5]},
         "VLAN20": {"id":"20", "nom":"VLAN20", "untagged":[7], "tagged": [3]},
         "VLAN30": {"id":"30", "nom":"VLAN30", "untagged":[8], "tagged": [3]}
       }
@@ -76,29 +76,50 @@
     "pi31": {
       "type": "raspberry_pi_3b",
       "nom": "pi31",
-      "fonction": "Hôte de calcul Edge (Docker Host)",
+      "fonction": "Hôte de calcul Edge",
       "systeme_exploitation": "Ubuntu Server 26.04",
       "interfaces_physiques": {
         "eth0": {
           "mode": "trunk",
           "reseaux_autorises": ["VLAN10", "VLAN20", "VLAN30"],
-          "ip_gestion": "192.168.1.31" 
+          "ip_gestion": "192.168.10.10" 
         }
       },
       "arborescence_hote": {
-        "racine_projets": "/home/pi31/production",
+        "racine_projets": "/home/pi31",
         "stockage_persistant": "/var/lib/docker/volumes"
       },
       "charges_logiques_nominales": [
-        "sim-rincage-modbus",
+        "sim-rincage",
+        "api-rincage"
+      ]
+    },
+    "pi32": {
+      "type": "raspberry_pi_3b",
+      "nom": "pi32",
+      "fonction": "Hôte de calcul Edge",
+      "systeme_exploitation": "Ubuntu Server 26.04",
+      "interfaces_physiques": {
+        "eth0": {
+          "mode": "trunk",
+          "reseaux_autorises": ["VLAN10", "VLAN20", "VLAN30"],
+          "ip_gestion": "192.168.10.11" 
+        }
+      },
+      "arborescence_hote": {
+        "racine_projets": "/home/pi32",
+        "stockage_persistant": "/var/lib/docker/volumes"
+      },
+      "charges_logiques_nominales": [
+        "sim-rincage",
         "api-rincage"
       ]
     }
   },
   "ressources_logiques": {
-    "sim-rincage-modbus": {
+    "sim-rincage": {
       "type": "conteneur_docker",
-      "nom": "sim-rincage-modbus",
+      "nom": "sim-rincage",
       "fonction": "Simulation physique du tambour de rinçage",
       "depot_source": "https://github.com/thibault-leblanc/sii/tree/main/configurations/conteneurs/sim/rincage",
       "chemin_deploiement": "simulation/rincage",
