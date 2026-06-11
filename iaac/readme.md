@@ -6,6 +6,7 @@ L'objectif de ce module est de maintenir une **Source Unique de Vérité (Single
 
 ## 📂 Architecture du dossier
 
+* `schema.json` : La structure centrale. Il décrit la structure de la topologie.
 * `infrastructure.json` : Le manifeste central. Il décrit la topologie complète (réseaux, équipements, adresses IP, VLANs).
 * `index.html` : L'interface web de gestion. Elle permet de générer un graphe de topologie dynamique et d'éditer le manifeste JSON directement depuis un navigateur.
 
