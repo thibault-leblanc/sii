@@ -1,0 +1,188 @@
+{
+  "metadonnes": {
+    "nom_plateforme": "SII_PLATEFORME",
+    "version": "1.1.0",
+    "derniere_mise_a_jour": "2026-05-31",
+    "description": "Ontologie IaaC Normalisée - Système d'Information Industriel"
+  },
+  "reseaux_globaux": {
+    "VLAN10": {
+      "nom": "VLAN10",
+      "id": 10,
+      "description": "Réseau Infrastructure & Administration",
+      "sous_reseau": "192.168.10.0/24",
+      "passerelle": "192.168.10.1"
+    },
+    "VLAN20": {
+      "nom": "VLAN20",
+      "id": 20,
+      "description": "Réseau Terrain (Modbus/IO) CIM1-CIM2",
+      "sous_reseau": "192.168.20.0/24",
+      "passerelle": "192.168.20.1"
+    },
+    "VLAN30": {
+      "nom": "VLAN30",
+      "id": 30,
+      "description": "Réseau Supervision (OPC-UA/SCADA) CIM2-CIM3",
+      "sous_reseau": "192.168.30.0/24",
+      "passerelle": "192.168.30.1"
+    }
+  },
+  "ressources_physiques": {
+    "pare_feu_principal": {
+      "type": "pare-feu",
+      "nom": "pare_feu_principal",
+      "fonction": "Segmentation infrastructure-exterieur",
+      "interfaces": {
+        "wan": { "type": "physique", "mode": "access", "vlan_id": "WAN", "ip": "192.168.1.197" },
+        "vlan10": { "type": "physique", "mode": "access", "vlan_id": "VLAN10", "ip": "192.168.10.1","liaison_physique": "commutateur_principal/port6" },
+        "vlan20": { "type": "physique", "mode": "access", "vlan_id": "VLAN20", "ip": "192.168.20.1","liaison_physique": "commutateur_principal/port7"  },
+        "vlan30": { "type": "physique", "mode": "access", "vlan_id": "VLAN30", "ip": "192.168.30.1","liaison_physique": "commutateur_principal/port8"  }
+      }
+    },
+    "commutateur_principal": {
+      "type": "commutateur",
+      "nom": "commutateur_principal", 
+      "fonction": "Distribution",
+      "marque": "D-Link",
+      "modele": "DGS-1210-10MP Gigabit Ethernet Switch",
+      "boot_version": "1.00.010",
+      "firmware_version": "6.10.007",
+      "hardware_version": "F1",
+      "serial_number": "TM0C107001061",
+      "MAC": "34-0A-33-0F-09-90",
+      "ip_gestion": "192.168.10.90",
+      "masque": "255.255.255.0",
+      "passerelle": "192.168.10.1",
+      "interfaces": {
+        "port1": { "type": "cuivre", "mode": "access", "vlan_id": "VLAN1", "description": "" },
+        "port2": { "type": "cuivre", "mode": "access", "vlan_id": "VLAN10", "description": "réserve admin","ip": "192.168.10.11"},
+        "port3": { "type": "cuivre", "mode": "trunk", "vlans_autorises": ["VLAN10", "VLAN20", "VLAN30"], "description": "trunk pi31" },
+        "port4": { "type": "cuivre", "mode": "trunk", "vlans_autorises": ["VLAN10", "VLAN20", "VLAN30"], "description": "trunk pi32" },
+        "port5": { "type": "cuivre", "mode": "access", "vlan_id": "VLAN1", "description": "" },
+        "port6": { "type": "cuivre", "mode": "access", "vlan_id": "VLAN10", "description": "VLAN10" },
+        "port7": { "type": "cuivre", "mode": "access", "vlan_id": "VLAN20", "description": "VLAN20" },
+        "port8": { "type": "cuivre", "mode": "access", "vlan_id": "VLAN30", "description": "VLAN30" },
+        "port9": { "type": "optique", "mode": "access", "vlan_id": "VLAN1", "description": "" },
+        "port10": { "type": "optique", "mode": "access", "vlan_id": "VLAN1", "description": "" }
+      }
+    },
+    "pi31": {
+      "type": "raspberry_pi_3b",
+      "nom": "pi31",
+      "fonction": "Hôte de calcul Edge",
+      "systeme_exploitation": "Ubuntu Server 26.04",
+      "arborescence_hote": {
+        "racine_projets": "/home/pi31",
+        "stockage_persistant": "/var/lib/docker/volumes"
+      },
+      "interfaces": {
+        "eth0": {
+          "type": "physique",
+          "mode": "trunk",
+          "vlans_autorises": ["VLAN10", "VLAN20", "VLAN30"],
+          "liaison_physique": "commutateur_principal/port3"
+        },
+	"eth0.10": {
+          "type": "virtuelle",
+          "mode": "access",
+          "vlan_id": "VLAN10",
+          "ip": "192.168.10.10"
+        },
+	"eth0.20": {
+          "type": "virtuelle",
+          "mode": "access",
+          "vlan_id": "VLAN20"
+        },
+	"eth0.30": {
+          "type": "virtuelle",
+          "mode": "access",
+          "vlan_id": "VLAN30"
+        }
+      },
+      "charges_logiques_nominales": [
+        "sim-rincage",
+        "api-rincage"
+      ]
+    },
+    "pi32": {
+      "type": "raspberry_pi_3b",
+      "nom": "pi32",
+      "fonction": "Hôte de calcul Edge",
+      "systeme_exploitation": "Ubuntu Server 26.04",
+      "arborescence_hote": {
+        "racine_projets": "/home/pi32",
+        "stockage_persistant": "/var/lib/docker/volumes"
+      },
+      "interfaces": {
+        "eth0": {
+          "type": "physique",
+          "mode": "trunk",
+          "vlans_autorises": ["VLAN10", "VLAN20", "VLAN30"],
+          "ip_gestion": "192.168.10.11",
+          "liaison_physique": "commutateur_principal/port4"
+        },
+	"eth0.10": {
+          "type": "virtuelle",
+          "mode": "access",
+          "vlan_id": "VLAN10",
+          "ip": "192.168.10.11"
+        },
+	"eth0.20": {
+          "type": "virtuelle",
+          "mode": "access",
+          "vlan_id": "VLAN20"
+        },
+	"eth0.30": {
+          "type": "virtuelle",
+          "mode": "access",
+          "vlan_id": "VLAN30"
+        }
+      },
+      "charges_logiques_nominales": [
+        "sim-rincage",
+        "api-rincage"
+      ]
+    }
+  },
+  "ressources_logiques": {
+    "sim-rincage": {
+      "type": "conteneur_docker",
+      "nom": "sim-rincage",
+      "fonction": "Simulation physique du tambour de rinçage",
+      "depot_source": "https://github.com/thibault-leblanc/sii/tree/main/configurations/conteneurs/sim/rincage",
+      "chemin_deploiement": "simulation/rincage",
+      "hote_parent": "pi31",
+      "interfaces": {
+        "mv-eth0": {
+          "type": "macvlan",
+          "liaison_hote": "eth0",
+          "vlan_id": "VLAN20",
+          "ip_statique": "192.168.20.10"
+        }
+      }
+    },
+    "api-rincage": {
+      "type": "conteneur_docker",
+      "nom": "api-rincage",
+      "fonction": "Automate logique de contrôle et serveur OPC-UA",
+      "depot_source": "https://github.com/thibault-leblanc/sii/tree/main/configurations/conteneurs/api/rincage",
+      "chemin_deploiement": "api/rincage",
+      "hote_parent": "pi31",
+      "interfaces": {
+        "mv-eth0.20": {
+          "type": "macvlan",
+          "liaison_hote": "eth0",
+          "vlan_id": "VLAN20",
+          "ip_statique": "192.168.20.20"
+        },
+        "mv-eth0.30": {
+          "type": "macvlan",
+          "liaison_hote": "eth0",
+          "vlan_id": "VLAN30",
+          "ip_statique": "192.168.30.20"
+        }
+      }
+    }
+  }
+}
