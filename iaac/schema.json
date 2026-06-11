@@ -1,0 +1,86 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "Schéma Ontologie IaaC - Plateforme",
+  "type": "object",
+  "properties": {
+    "metadonnes": { "type": "object" },
+    "reseaux_globaux": {
+      "type": "object",
+      "patternProperties": {
+        "^[a-zA-Z0-9_-]+$": {
+          "type": "object",
+          "properties": {
+            "nom": { "type": "string" },
+            "id": { "type": "integer" },
+            "description": { "type": "string" },
+            "sous_reseau": { "type": "string" },
+            "passerelle": { "type": "string" }
+          }
+        }
+      }
+    },
+    "ressources_physiques": {
+      "type": "object",
+      "patternProperties": {
+        "^[a-zA-Z0-9_-]+$": {
+          "type": "object",
+          "properties": {
+            "type": { "type": "string", "enum": ["pare-feu", "commutateur", "raspberry_pi_3b", "raspberry_pi_5", "serveur_x86"] },
+            "nom": { "type": "string" },
+            "fonction": { "type": "string" },
+            "ip_gestion": { "type": "string" },
+            "systeme_exploitation": { "type": "string" },
+            "charges_logiques_nominales": { "type": "array" },
+            "interfaces": {
+              "type": "object",
+              "patternProperties": {
+                "^[a-zA-Z0-9_\\-\\.]+$": {
+                  "type": "object",
+                  "properties": {
+                    "type": { "type": "string", "enum": ["physique", "virtuelle", "cuivre", "optique", "macvlan"] },
+                    "mode": { "type": "string", "enum": ["access", "trunk", "routed"] },
+                    "vlan_id": { "type": "string" },
+                    "ip": { "type": "string" },
+                    "liaison_physique": { "type": "string" },
+                    "vlans_autorises": { "type": "array" },
+                    "description": { "type": "string" }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "ressources_logiques": {
+      "type": "object",
+      "patternProperties": {
+        "^[a-zA-Z0-9_-]+$": {
+          "type": "object",
+          "properties": {
+            "type": { "type": "string", "enum": ["conteneur_docker", "machine_virtuelle"] },
+            "nom": { "type": "string" },
+            "fonction": { "type": "string" },
+            "hote_parent": { "type": "string" },
+            "chemin_deploiement": { "type": "string" },
+            "depot_source": { "type": "string" },
+            "interfaces": {
+              "type": "object",
+              "patternProperties": {
+                "^[a-zA-Z0-9_\\-\\.]+$": {
+                  "type": "object",
+                  "properties": {
+                    "type": { "type": "string", "enum": ["macvlan", "ipvlan", "bridge", "host"] },
+                    "liaison_hote": { "type": "string" },
+                    "vlan_id": { "type": "string" },
+                    "ip_statique": { "type": "string" }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+}
