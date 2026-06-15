@@ -30,6 +30,13 @@
             "fonction": { "type": "string" },
             "ip_gestion": { "type": "string" },
             "systeme_exploitation": { "type": "string" },
+            "arborescence_hote": {
+              "type": "object",
+              "properties": {
+                "racine_projets": { "type": "string" },
+                "stockage_persistant": { "type": "string" }
+              }
+            },
             "charges_logiques_nominales": { "type": "array" },
             "interfaces": {
               "type": "object",

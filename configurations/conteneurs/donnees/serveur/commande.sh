@@ -1,0 +1,1 @@
+./deploiement_ftp.sh donnees-vlan-30 192.168.30.30 vlan30 ~/donnees/vlan30

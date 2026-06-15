@@ -1,0 +1,18 @@
+services:
+  donnees-vlan-20:
+    image: serveur-ftp:latest
+    container_name: donnees-vlan-20
+    restart: unless-stopped
+    environment:
+      - FTP_USER=admin
+      - FTP_PASS=admin
+    volumes:
+      - /home/pi51/donnees/vlan20:/partage
+    networks:
+      reseau_macvlan:
+        ipv4_address: 192.168.20.30
+
+networks:
+  reseau_macvlan:
+    external: true
+    name: vlan20
