@@ -1,0 +1,19 @@
+{
+  "vip_admin": "192.168.10.251",
+  "vrid": 51,
+  "interface_heartbeat": "eth0.10",
+  "services_surveilles": {
+    "api-rincage": {
+      "nom_conteneur": "api-rincage",
+      "chemin_compose": "api/rincage",
+      "priorite_pi31": 100,
+      "priorite_pi32": 90
+    },
+    "sim-rincage": {
+      "nom_conteneur": "sim-rincage",
+      "chemin_compose": "simulation/rincage",
+      "priorite_pi31": 100,
+      "priorite_pi32": 90
+    }
+  }
+}

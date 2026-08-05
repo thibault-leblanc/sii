@@ -1,0 +1,12 @@
+version: '3.8'
+
+services:
+  ha-cluster:
+    image: agent-ha:latest
+    container_name: ha-cluster
+    restart: unless-stopped
+    network_mode: "host"
+    privileged: true
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+      - ../:/config:ro

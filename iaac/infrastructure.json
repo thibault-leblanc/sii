@@ -1,8 +1,8 @@
 {
   "metadonnes": {
     "nom_plateforme": "SII_PLATEFORME",
-    "version": "1.3.0",
-    "derniere_mise_a_jour": "2026-06-15",
+    "version": "1.4.0",
+    "derniere_mise_a_jour": "2026-08-04",
     "description": "Ontologie IaaC Normalisée - Système d'Information Industriel"
   },
   "reseaux_globaux": {
@@ -80,13 +80,21 @@
         "port3": {
           "type": "cuivre",
           "mode": "trunk",
-          "vlans_autorises": ["VLAN10", "VLAN20", "VLAN30"],
+          "vlans_autorises": [
+            "VLAN10",
+            "VLAN20",
+            "VLAN30"
+          ],
           "description": "trunk pi31"
         },
         "port4": {
           "type": "cuivre",
           "mode": "trunk",
-          "vlans_autorises": ["VLAN10", "VLAN20", "VLAN30"],
+          "vlans_autorises": [
+            "VLAN10",
+            "VLAN20",
+            "VLAN30"
+          ],
           "description": "trunk pi32"
         }
       }
@@ -104,7 +112,11 @@
         "eth0": {
           "type": "physique",
           "mode": "trunk",
-          "vlans_autorises": ["VLAN10", "VLAN20", "VLAN30"],
+          "vlans_autorises": [
+            "VLAN10",
+            "VLAN20",
+            "VLAN30"
+          ],
           "liaison_physique": "commutateur_principal/port3"
         },
         "eth0.10": {
@@ -126,7 +138,8 @@
       },
       "charges_logiques_nominales": [
         "sim-rincage",
-        "api-rincage"
+        "api-rincage",
+        "ha-cluster"
       ]
     },
     "pi32": {
@@ -142,7 +155,11 @@
         "eth0": {
           "type": "physique",
           "mode": "trunk",
-          "vlans_autorises": ["VLAN10", "VLAN20", "VLAN30"],
+          "vlans_autorises": [
+            "VLAN10",
+            "VLAN20",
+            "VLAN30"
+          ],
           "ip_gestion": "192.168.10.11",
           "liaison_physique": "commutateur_principal/port4"
         },
@@ -165,7 +182,8 @@
       },
       "charges_logiques_nominales": [
         "sim-rincage",
-        "api-rincage"
+        "api-rincage",
+        "ha-cluster"
       ]
     },
     "pi51": {
@@ -181,7 +199,11 @@
         "eth0": {
           "type": "physique",
           "mode": "trunk",
-          "vlans_autorises": ["VLAN10", "VLAN20", "VLAN30"]
+          "vlans_autorises": [
+            "VLAN10",
+            "VLAN20",
+            "VLAN30"
+          ]
         },
         "eth0.20": {
           "type": "virtuelle",
@@ -241,11 +263,30 @@
         }
       }
     },
+    "ha-cluster": {
+      "type": "conteneur_docker",
+      "nom": "ha-cluster",
+      "fonction": "Orchestrateur de Haute Disponibilité",
+      "depot_source": "https://github.com/thibault-leblanc/sii/tree/main/configurations/conteneurs/ha-cluster",
+      "chemin_deploiement": "ha-cluster",
+      "hote_parent": "pi31",
+      "fichier_configuration_central": "donnees/vlan20/donnees/config_cluster.json",
+      "vip_geree": "192.168.10.251",
+      "interfaces": {
+        "host-net": {
+          "type": "host",
+          "description": "Partage l'interface réseau de l'hôte pour gérer la VIP d'administration, lire le hostname local et écouter le socket Docker local",
+          "liaison_hote": "eth0",
+          "vlan_id": "VLAN20",
+          "ip_statique": "192.168.10.251"
+        }
+      }
+    },
     "donnees-vlan-20": {
       "type": "conteneur_docker",
       "nom": "donnees-vlan-20",
       "fonction": "Serveur de fichiers FTP (Ingestion réseau terrain)",
-      "depot_source": "local",
+      "depot_source": "https://github.com/thibault-leblanc/sii/tree/main/configurations/conteneurs/donnees-vlan-20",
       "chemin_deploiement": "vlan20",
       "hote_parent": "pi51",
       "interfaces": {
@@ -261,7 +302,7 @@
       "type": "conteneur_docker",
       "nom": "sync-vlan-20",
       "fonction": "Agent Rsync automatisé (Réplication VLAN 20 vers cluster)",
-      "depot_source": "local",
+      "depot_source": "https://github.com/thibault-leblanc/sii/tree/main/configurations/conteneurs/sync-vlan-20",
       "chemin_deploiement": "vlan20-sync",
       "hote_parent": "pi51",
       "interfaces": {
@@ -277,7 +318,7 @@
       "type": "conteneur_docker",
       "nom": "donnees-vlan-30",
       "fonction": "Serveur de fichiers FTP (Ingestion réseau supervision)",
-      "depot_source": "local",
+      "depot_source": "https://github.com/thibault-leblanc/sii/tree/main/configurations/conteneurs/donnees-vlan-30",
       "chemin_deploiement": "vlan30",
       "hote_parent": "pi51",
       "interfaces": {
@@ -293,7 +334,7 @@
       "type": "conteneur_docker",
       "nom": "sync-vlan-30",
       "fonction": "Agent Rsync automatisé (Réplication VLAN 30 vers cluster)",
-      "depot_source": "local",
+      "depot_source": "https://github.com/thibault-leblanc/sii/tree/main/configurations/conteneurs/sync-vlan-30",
       "chemin_deploiement": "vlan30-sync",
       "hote_parent": "pi51",
       "interfaces": {
