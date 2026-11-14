@@ -319,8 +319,11 @@
 
             for (const [assetKey, asset] of Object.entries(toutesLesRessources)) {
                 if (asset.hote_parent) {
-                    let e = { id: `e${edgeIdCounter++}`, from: assetKey, to: asset.hote_parent, label: 'Hébergé', dashes: true, color: {color:'#94a3b8', inherit: false}, relationType: 'host' };
-                    edges.push(e); originalEdgesData[e.id] = e;
+                    let parents = Array.isArray(asset.hote_parent) ? asset.hote_parent : [asset.hote_parent];
+                    parents.forEach(parent => {
+                        let e = { id: `e${edgeIdCounter++}`, from: assetKey, to: parent, label: 'Hébergé', dashes: true, color: {color:'#94a3b8', inherit: false}, relationType: 'host' };
+                        edges.push(e); originalEdgesData[e.id] = e;
+                    });
                 }
                 if (asset.interfaces) {
                     for (const [ifaceKey, iface] of Object.entries(asset.interfaces)) {

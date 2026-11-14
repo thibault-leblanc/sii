@@ -269,7 +269,7 @@
       "fonction": "Orchestrateur de Haute Disponibilité",
       "depot_source": "https://github.com/thibault-leblanc/sii/tree/main/configurations/conteneurs/ha-cluster",
       "chemin_deploiement": "ha-cluster",
-      "hote_parent": "pi31",
+      "hote_parent": ["pi31", "pi32"],
       "fichier_configuration_central": "donnees/vlan20/donnees/config_cluster.json",
       "vip_geree": "192.168.10.251",
       "interfaces": {

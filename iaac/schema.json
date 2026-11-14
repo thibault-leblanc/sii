@@ -68,7 +68,10 @@
             "type": { "type": "string", "enum": ["conteneur_docker", "machine_virtuelle"] },
             "nom": { "type": "string" },
             "fonction": { "type": "string" },
-            "hote_parent": { "type": "string" },
+            "hote_parent": {
+                "type": ["string", "array"],
+                "items": { "type": "string" }
+              },
             "chemin_deploiement": { "type": "string" },
             "depot_source": { "type": "string" },
             "interfaces": {
