@@ -34,15 +34,19 @@ Intention du porteur de projet :
 
 | Cluster | Nœuds | Rôle |
 |---|---|---|
-| **Fonctionnel** | pi31, pi32 (pi3X) | Porte le métier : automates, simulations, SCADA |
-| **Infrastructure** | pi51 seul aujourd'hui, futurs pi5X | Porte les services de socle : données, gestionnaire de HA et de conteneurs, GIA plus tard… |
+| **Fonctionnel** | pi31, pi32 (pi3X) | Porte le métier : automates, simulations |
+| **Infrastructure** | pi51 seul aujourd'hui, futurs pi5X | Porte les services de socle : **gestion unique de toutes les données de la plateforme**, gestionnaire de HA et de conteneurs, GIA (gestion des identités et des accès, rien d'existant à ce jour) plus tard… |
+| **Supervision** (à terme) | À définir | SCADA dans **son propre VLAN**. Aujourd'hui, FUXA tourne sur le poste d'administration 192.168.10.49. |
+
+La plateforme est appelée à grossir (autres procédés, automates, simulateurs : `sim-es-2`, `api2`, `api3` sur le schéma en donnent l'idée). Le modèle doit donc permettre d'ajouter un nœud, un cluster ou une instance **sans retoucher l'existant**.
 
 C'est un découpage sain, qui correspond à la séparation classique **plan de contrôle / plan de données**. Il a quatre conséquences sur l'audit :
 
 1. **L'implémentation actuelle ne le reflète pas encore.** Le gestionnaire de HA (`ha-cluster`) tourne *sur* les nœuds fonctionnels et prend ses décisions localement (keepalived). Il n'existe ni gestionnaire de conteneurs côté pi51, ni notion de cluster dans l'IaaC. Le `hote_parent: ["pi31","pi32"]` en cours de modification est un contournement : la ressource devrait cibler **un cluster**, pas une liste de nœuds (§2.2).
 2. **Il faut répartir les rôles entre infra et nœuds** pour que la panne de pi51, encore seul, n'empêche pas les bascules : **pi51 définit l'état voulu** (quoi déployer, où, avec quelle config, publié dans `/srv/sii/infra`) et des **agents locaux sur les pi3X l'appliquent et détectent les pannes** (VRRP). Si pi51 tombe, le cluster fonctionnel continue de tourner et de basculer sur la dernière configuration reçue (§4, H10).
 3. **La réplication des données doit anticiper le futur cluster infra** : chemins indépendants du nœud (`/srv/sii`), sources adressées par une IP de service ou une VIP plutôt que par l'IP de pi51, et un format d'état voulu indépendant de l'outil de transport (rsync aujourd'hui, autre chose demain) (§3.3).
-4. **Le SCADA doit entrer dans le cluster fonctionnel.** Il n'existe aujourd'hui qu'en conteneur de dev (bridge `:1881`), et le schéma le dessine sur pi51 (§2.4).
+4. **Le SCADA n'a pas encore de place dans l'infrastructure.** Il tourne en conteneur de dev sur le poste d'administration (192.168.10.49, bridge `:1881`) : la supervision traverse donc le pare-feu du VLAN10 vers le VLAN30 pour joindre l'automate. La cible est un cluster de supervision dans un VLAN dédié, à créer dans l'IaaC (nouveau VLAN, flux VLAN supervision → VLAN30:4840). Il faudra préciser le rôle respectif de ce nouveau VLAN et du VLAN30 actuel, déjà nommé « Supervision ».
+5. **Toute donnée transite par le cluster infra** : on dépose dans le dossier du périmètre concerné sur pi5X, puis la synchronisation l'achemine vers le cluster cible. Il n'y a pas de dépôt direct sur un nœud fonctionnel ou de supervision. Le §3.3 en découle directement.
 
 ---
 
@@ -70,7 +74,8 @@ C'est un découpage sain, qui correspond à la séparation classique **plan de c
 - **Le stockage et la réplication** : partages, sens de synchronisation, cibles. C'est pourtant l'objectif prioritaire.
 - **La configuration HA** : `config_cluster.json` duplique la VIP, les priorités et les services sans lien avec `infrastructure.json`.
 - **Les clusters** (§1.1) : il manque une section `clusters` (membres, rôle, VIP, cluster d'appartenance). Une ressource logique déclarerait alors `cluster_cible: "fonctionnel"`, avec une préférence de placement et un groupe de bascule, au lieu d'un `hote_parent` qui énumère des nœuds. C'est aussi ce qui permettra d'ajouter un pi33 ou un pi52 sans toucher aux ressources.
-- **Les instances prévues sur le schéma** : `sim-es-2` (192.168.20.11), `api2` (20.21 / 30.21), `api3` (20.22 / 30.22) et `scada1` (192.168.30.10). Si elles relèvent de la cible, elles ont leur place dans l'IaaC, avec un statut comme `planifié`.
+- **Le poste d'administration** (192.168.10.49) qui héberge aujourd'hui le SCADA de dev, ainsi que le futur VLAN de supervision.
+- *Les instances `sim-es-2`, `api2` et `api3` du schéma ne représentent qu'une perspective de croissance : inutile de les modéliser. En revanche, le modèle doit rendre leur ajout trivial (clusters, plages d'adresses par VLAN, contrat d'échange générique P9).*
 
 ### 2.3 Constat critique
 
@@ -85,9 +90,9 @@ Le schéma `archi_plateforme.drawio` constitue **une deuxième source de vérit�
 | S1 | 🟠 | Physique | **Port 4 du switch** : le schéma le relie à **pi51**, l'IaaC à **pi32** (trunk). **pi32 n'apparaît pas** sur la page physique. |
 | S2 | 🟠 | Physique | **Port 3 (pi31)** : le schéma indique un trunk `vl10 vl20`, alors que l'IaaC et le netplan de pi31 utilisent les VLANs **10, 20 et 30**. Sans le VLAN30, `api-rincage` ne peut pas exposer l'OPC-UA au SCADA. |
 | S3 | 🟡 | Physique | **Port 1** est étiqueté `adm` sur le schéma, alors que l'IaaC déclare un `port2` en accès VLAN10 avec l'IP .11 (voir I6). Le **port 5 → `srv1`** (serveur générique) n'existe pas dans l'IaaC. |
-| S4 | 🟠 | Logique | **`scada1` (192.168.30.10) est dessiné dans le cadre pi51**, avec `donnees-vlan-30` et `sync-vlan-30`, ce qui contredit le rôle du cluster fonctionnel (§1.1). Est-ce un oubli de placement, ou la position actuelle ? |
+| S4 | 🟡 | Logique | **`scada1` (192.168.30.10) est dessiné dans le cadre pi51.** Ce n'est ni la réalité (poste .49) ni la cible (cluster de supervision dans son propre VLAN, §1.1). À redessiner. |
 | S5 | 🟡 | Logique | Le cadre « pi31 » contient tous les conteneurs fonctionnels, mais il n'y a ni cadre pi32, ni notion de cluster, ni VIP 192.168.10.251. Les flux de réplication (pi51 → pi3X) ne sont pas représentés. |
-| S6 | 🟡 | Logique | Côté WAN : box .254, pare-feu .197 (✅ cohérent avec l'IaaC), poste de travail **.49** absent de l'IaaC. Si c'est là que tourne `scada-dev`, la supervision de dev atteint 192.168.30.20 depuis le WAN, à travers le pare-feu. C'est un flux à documenter. |
+| S6 | 🟡 | Logique | Côté WAN : box .254, pare-feu .197 (✅ cohérent avec l'IaaC). Le **poste d'administration 192.168.10.49**, qui héberge FUXA, est dessiné côté box/WAN et absent de l'IaaC. Le flux FUXA (VLAN10) → automate (192.168.30.20:4840) traverse le pare-feu et n'est documenté nulle part. |
 | S7 | ✅ | Logique | Adresses VLAN10 cohérentes : pi31 .10, pi32 .11, pi51 .12, switch .90, ainsi que les IP des conteneurs existants. |
 
 **Recommandation** : désigner **`infrastructure.json` comme unique référence** et faire du rendu de topologie de l'interface IaaC la vue technique de référence, avec export possible. Le draw.io resterait pour les vues **conceptuelles** (clusters, plans de contrôle et de données, chaîne procédé, découpage interne des conteneurs), qui changent peu, et ne porterait plus d'adresses ni de numéros de port.
@@ -121,7 +126,7 @@ Même schéma pour le VLAN30.
 | D5 | 🟠 | **Pas de mise à jour atomique.** Un ensemble de fichiers cohérents (compose et config, ou nouvelle image `.tar` et config associée) peut être vu à moitié copié par l'agent HA. rsync n'a pas `--delay-updates`. |
 | D6 | 🟠 | **Aucune observabilité.** On ne sait pas si la dernière synchro a réussi ni quand. Il n'y a ni horodatage, ni code retour exploité, ni healthcheck Docker. La HA ne peut pas savoir si sa config est fraîche. |
 | D7 | 🟡 | La cible et les chemins sont **en dur dans le Dockerfile** (`pi31@192.168.10.10`, `/home/pi31/…`). Ajouter un nœud oblige à reconstruire l'image. Les chemins diffèrent par nœud (`/home/pi31` contre `/home/pi32`), ce qui complique tout le reste (HA, compose). |
-| D8 | 🟡 | La racine FTP (`vlan20/`) ≠ le dossier synchronisé (`vlan20/donnees/`). Un dépôt à la racine FTP n'est jamais répliqué. C'est peut-être voulu, mais ce n'est pas documenté. Personne ne crée `donnees/` : Docker le créera en `root` au premier montage. |
+| D8 | 🟠 | La racine FTP (`vlan20/`) ≠ le dossier synchronisé (`vlan20/donnees/`) : un dépôt à la racine FTP n'est jamais répliqué. Or la règle est que **toute donnée déposée sur pi5X est destinée à être synchronisée** (§1.1). Il faut donc aligner la racine FTP sur le dossier synchronisé, ou rendre explicite un sas `entrant/` → `donnees/`. Personne ne crée `donnees/` : Docker le créera en `root` au premier montage. |
 | D9 | 🟡 | `-z` (compression) sur un LAN gigabit avec des Pi 3B coûte du CPU pour rien. |
 | D10 | 🟡 | Le readme [donnees/readme.md](../configurations/conteneurs/donnees/readme.md) pointe vers `./serveur-ftp/`, alors que le dossier s'appelle `./serveur/`. Le `docker-compose.yml` commité dans `serveur/` est un artefact généré. |
 | D11 | ❓ | Ancien conteneur de test `test-opcua-srv` (script [pi31/opcua-srv.sh](../configurations/machines/pi31/opcua-srv.sh)) : il utilisait **192.168.20.30 et 192.168.30.30**, les IP des FTP actuels. S'il tourne encore sur pi31, il y a un conflit d'IP. À vérifier sur la machine. |
@@ -144,6 +149,7 @@ pi51:/srv/sii/                      (source, écrite par FTP et par l'admin)
 pi31:/srv/sii/  et  pi32:/srv/sii/  ← répliques identiques (mêmes chemins)
 ```
 
+- **Règle de gestion** : chaque dossier de premier niveau de `/srv/sii` est un **périmètre**, déclaré dans l'IaaC avec sa source et son **cluster destinataire**. Ajouter des données pour un cluster revient à déposer dans son périmètre sur pi5X ; ajouter un cluster (supervision, futur procédé) revient à déclarer un périmètre, sans code à écrire.
 - **Un agent par périmètre** (`infra`, `vlan20`, `vlan30`) : on garde votre logique de cloisonnement. Les sources sont distinctes et un agent ne voit que son dossier en `:ro`. Le **transport** se fait sur le VLAN10 (macvlan `eth0.10` ou `network_mode: host` sur pi51), sans traverser le pare-feu.
 - **Cibles paramétrées** par variables d'environnement (`SYNC_SOURCE`, `SYNC_TARGETS="pi31@192.168.10.10 pi32@192.168.10.11"`, `SYNC_DEST=/srv/sii/vlan20/donnees`, `SYNC_INTERVAL`). L'image devient générique et les valeurs sont générées depuis l'IaaC.
 - **rsync robuste** : `--mkpath` (D2), `-o ConnectTimeout=5` et cibles indépendantes (D3), `--delay-updates` (D5), sans `-z` (D9).
@@ -209,7 +215,7 @@ pi31:/srv/sii/  et  pi32:/srv/sii/  ← répliques identiques (mêmes chemins)
 |---|---|---|
 | R1 | 🔴 | [sim/rincage/requirements.txt](../configurations/conteneurs/sim/rincage/requirements.txt) est **vide** : une reconstruction produit une image sans `pymodbus`. |
 | R2 | 🟠 | `pymodbus>=3.6.8` n'est pas figé, et les deux images utilisent des API **incompatibles** : l'automate utilise `device_id=` (pymodbus ≥ 3.10), le simulateur `ModbusSlaveContext` et `zero_mode` (API < 3.10). Il faut figer une version par image, ou mieux migrer les deux sur la même. |
-| R3 | 🟠 | **Pas de procédure de build documentée** : architecture cible arm64 (`buildx --platform linux/arm64` depuis le PC Windows ?), tags d'image (`simu-rincage-image:latest` dans le compose contre `sim-rincage.tar`), versionnage. Les `.tar` sont hors Git, à juste titre, mais rien ne permet de les régénérer à l'identique. |
+| R3 | 🟠 | **Build manuel, non documenté.** Les images sont construites sur Docker Desktop (émulation arm), exportées en `.tar` puis importées à la main en SSH sur chaque Pi. Les tags sont incohérents (`simu-rincage-image:latest` dans le compose contre `sim-rincage.tar`) et il n'y a pas de versionnage. Cible, cohérente avec la règle « tout passe par pi5X » : un script de build (`buildx --platform linux/arm64`, tag versionné) qui **publie le `.tar` dans `/srv/sii/infra/images` sur pi51**. La synchro et l'agent de nœud font le reste : plus d'import manuel nœud par nœud. |
 | R4 | 🟡 | Images de base non figées (`alpine:latest`, `frangoteam/fuxa:latest`). `version: '3.8'` est obsolète dans les compose. |
 | R5 | 🟡 | Scripts dupliqués par machine (`installation_docker.sh` et `creation_vlan.sh` sont identiques sur les 3 Pi), code obsolète ([autres/installation.sh](../configurations/autres/installation.sh), `old*`, `sav/`), [readme.md](../readme.md) racine vide. |
 | R6 | 🟡 | `fuxa_appdata/` est ignoré dans `.gitignore` mais ses fichiers sont suivis par Git : le comportement est ambigu. Le projet SCADA mérite d'être versionné explicitement, en export JSON. |
@@ -254,7 +260,7 @@ Les phases sont ordonnées par dépendance. La phase 1 correspond à votre objec
 - [ ] Agent HA : montage `/srv/sii:/srv/sii:ro`, services lancés depuis `/srv/sii/infra/services/<svc>` (H1), images depuis `/srv/sii/infra/images` (H8).
 - [ ] `nopreempt` (ou retour manuel) (H2), sonde **par service** (H3), priorité par nœud (H7).
 - [ ] Groupes de bascule distincts : simulation / automate / SCADA (H5).
-- [ ] Faire entrer le SCADA FUXA dans le cluster fonctionnel : projet publié comme artefact dans `infra/`, données d'exécution (alarmes, historiques) locales ou sur un futur historian.
+- [ ] Préparer le cluster de supervision : VLAN dédié dans l'IaaC, projet FUXA publié comme artefact dans `/srv/sii/<périmètre supervision>`, données d'exécution (alarmes, historiques) locales ou sur un futur historian. En attendant, documenter le flux poste .49 → 192.168.30.20:4840.
 - [ ] Protection contre le double maître : contrôle de l'IP de service avant démarrage (H6).
 - [ ] Documenter la bascule à froid (H4) et décider d'une éventuelle mémoire rémanente.
 - [ ] Scénarios de recette : arrêt de pi31, arrêt de `api-rincage`, coupure du VLAN10, retour de pi31.
@@ -268,7 +274,7 @@ Les phases sont ordonnées par dépendance. La phase 1 correspond à votre objec
 
 ### Phase 4 : IaaC prescriptive
 - [ ] Corriger le générateur netplan : route et DNS sur les VLANs virtuels (I2) ; générer aussi la création des réseaux macvlan.
-- [ ] Ajouter au modèle : SCADA, instances planifiées (`sim-es-2`, `api2`, `api3`), `srv1`, poste .49, réseaux Docker et IPAM (H9), **matrice de flux** (avec génération de la checklist pare-feu).
+- [ ] Ajouter au modèle : SCADA et VLAN de supervision, poste d'administration .49, `srv1`, réseaux Docker et IPAM (H9), **matrice de flux** (avec génération de la checklist pare-feu).
 - [ ] Rendu topologique de l'IaaC comme vue technique de référence ; draw.io réduit aux vues conceptuelles (§2.4).
 - [ ] Générer depuis `infrastructure.json` : `.env`/compose des services, `config_cluster.json`, paramètres des agents de synchronisation.
 - [ ] Validation de `infrastructure.json` contre `schema.json` à l'enregistrement (`serveur.py`).
@@ -284,11 +290,15 @@ Les phases sont ordonnées par dépendance. La phase 1 correspond à votre objec
 
 ## 9. Questions ouvertes
 
-1. Où tourne FUXA aujourd'hui (poste .49, ou Pi) ? `scada1` en 192.168.30.10 sur pi51 (schéma) est-il un reste, alors que la cible est le cluster fonctionnel ?
-2. Comment sont construites les images pour arm64 aujourd'hui ?
-3. Câblage réel du switch : port 1 ou 2 pour l'administration, port 4 vers pi32 ou vers pi51, trunk de pi31 avec ou sans VLAN30, et que représente `srv1` sur le port 5 ?
-4. Défaut en mode manuel : faut-il suivre la spécification (tout coupé) ou le code (dépannage possible) ?
-5. Seuil de pH : 5.0 ou 5.5 ?
-6. Les dépôts FTP à la racine (hors `donnees/`) doivent-ils rester locaux à pi51 ?
-7. `sim-es-2`, `api2` et `api3` (schéma) : simples réservations d'adresses, ou procédés à venir ? Cela pèse sur la priorité du contrat d'échange générique (P9).
-8. « GIA » sur le cluster infra : s'agit-il bien de la gestion des identités et des accès (annuaire, SSO, comptes de service) ? Cela conditionnera plus tard l'authentification de la réplication et des agents.
+**Réponses obtenues (2026-11-14)**, intégrées dans le rapport :
+- *FUXA* : il tourne sur le poste d'administration 192.168.10.49. À terme, il aura son propre cluster dans un VLAN dédié (§1.1).
+- *Build* : Docker Desktop avec émulation arm, export `.tar`, import manuel en SSH (R3).
+- *Données* : pi5X (puis son cluster) est la source **unique** de toutes les données de la plateforme. Tout dépôt passe par le dossier du périmètre sur pi5X, puis est synchronisé (§1.1, §3.3, D8).
+- *`sim-es-2` / `api2` / `api3`* : ils illustrent seulement la croissance future (§2.2).
+- *GIA* : gestion des identités et des accès, rien d'existant aujourd'hui.
+
+**Questions restantes :**
+1. Câblage réel du switch : port 1 ou 2 pour l'administration, port 4 vers pi32 ou vers pi51, trunk de pi31 avec ou sans VLAN30, et que représente `srv1` sur le port 5 ?
+2. Futur VLAN de supervision : quel numéro et quel plan d'adressage ? Le VLAN30 reste-t-il le réseau d'échange OPC-UA entre automates et supervision ?
+3. Défaut en mode manuel : suivre la spécification (tout coupé) ou le code (dépannage possible) ?
+4. Seuil de pH : 5.0 ou 5.5 ?
