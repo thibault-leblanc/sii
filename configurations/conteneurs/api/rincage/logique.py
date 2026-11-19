@@ -1,11 +1,24 @@
+CAPTEURS_TERRAIN = ("niveau_acide", "qualite_acide", "alarme_debordement")
+SORTIES_A_L_ARRET = {
+    "cmd_pompe_acide": False, "cmd_vanne_vidange": False,
+    "cmd_moteur_tambour": False, "cmd_conv_entree": False, "cmd_conv_sortie": False,
+}
+
+
 def executer_logique(entrees, memoire_interne):
+    # Repli de sécurité : sans lecture complète du terrain, on ne devine rien, on coupe tout.
+    # (Avant : niveau absent = 0 % -> la pompe démarrait ; alarme absente = pas d'alarme.)
+    if any(capteur not in entrees for capteur in CAPTEURS_TERRAIN):
+        memoire_interne["cmd_pompe_acide"] = False
+        return dict(SORTIES_A_L_ARRET)
+
     sorties = {}
-    
+
     # --- 1. LECTURE DES ENTRÉES ---
     # Capteurs Terrain (Modbus)
-    niveau = entrees.get("niveau_acide", 0.0)
-    qualite = entrees.get("qualite_acide", 7.0)
-    alarme_debordement = entrees.get("alarme_debordement", False)
+    niveau = entrees["niveau_acide"]
+    qualite = entrees["qualite_acide"]
+    alarme_debordement = entrees["alarme_debordement"]
     
     # Commandes SCADA (OPC-UA)
     en_marche = entrees.get("en_marche", False)
@@ -60,7 +73,9 @@ def executer_logique(entrees, memoire_interne):
                 sorties["cmd_pompe_acide"] = memoire_interne.get("cmd_pompe_acide", False)
 
             # --- B. Cycle de renouvellement d'acide (Qualité pH) ---
-            if qualite < 5.0:
+            # Pendant le remplissage en acide neuf, le pH du fond de cuve n'est pas significatif :
+            # le tester relançait la purge aussitôt, cuve vide, à l'infini (audit P1).
+            if qualite < 5.0 and not memoire_interne.get("remplissage_neuf", False):
                 memoire_interne["mode_vidange"] = True
 
             if memoire_interne.get("mode_vidange", False):
@@ -68,9 +83,18 @@ def executer_logique(entrees, memoire_interne):
                 sorties["cmd_moteur_tambour"] = False
                 sorties["cmd_vanne_vidange"] = True
                 sorties["cmd_pompe_acide"] = False # Priorité à la purge
-                
+
                 if niveau <= 5.0:
                     memoire_interne["mode_vidange"] = False
+                    memoire_interne["remplissage_neuf"] = True
+            elif memoire_interne.get("remplissage_neuf", False):
+                # Remplissage en acide neuf jusqu'au niveau haut, production arrêtée
+                sorties["cmd_conv_entree"] = False
+                sorties["cmd_moteur_tambour"] = False
+                sorties["cmd_vanne_vidange"] = False
+                sorties["cmd_pompe_acide"] = niveau < 80.0
+                if niveau >= 80.0:
+                    memoire_interne["remplissage_neuf"] = False
             else:
                 # Processus normal de rinçage
                 sorties["cmd_vanne_vidange"] = False

@@ -5,8 +5,8 @@ RUN apk add --no-cache keepalived docker-cli python3 bash
 # 1. Le script d'Auto-Chargement des images (Warm Standby)
 RUN echo '#!/bin/bash' > /auto_loader.sh && \
     echo 'while true; do' >> /auto_loader.sh && \
-    echo '  # Scanne tous les fichiers .tar dans le dossier partagé' >> /auto_loader.sh && \
-    echo '  for TARFILE in $(find /config -name "*.tar"); do' >> /auto_loader.sh && \
+    echo '  # Seul ~/images est lu : jamais les données synchronisées depuis le FTP (audit, constat n°1)' >> /auto_loader.sh && \
+    echo '  for TARFILE in $(find /config/images -maxdepth 1 -name "*.tar" 2>/dev/null); do' >> /auto_loader.sh && \
     echo '    MARQUEUR="/tmp/$(basename $TARFILE).charge"' >> /auto_loader.sh && \
     echo '    # Si le fichier est nouveau ou mis à jour, on le charge' >> /auto_loader.sh && \
     echo '    if [ ! -f "$MARQUEUR" ] || [ "$TARFILE" -nt "$MARQUEUR" ]; then' >> /auto_loader.sh && \
@@ -46,17 +46,25 @@ RUN echo '#!/bin/bash' > /entrypoint.sh && \
     echo 'EOF' >> /entrypoint.sh && \
     echo '# Lancement du chargeur d images en tâche de fond' >> /entrypoint.sh && \
     echo '/auto_loader.sh &' >> /entrypoint.sh && \
+    echo '# Marqueur : le premier BACKUP vient du démarrage de keepalived, pas d une perte de maîtrise' >> /entrypoint.sh && \
+    echo 'touch /tmp/demarrage' >> /entrypoint.sh && \
     echo '# Lancement de Keepalived en processus principal' >> /entrypoint.sh && \
     echo 'exec keepalived -n -l -D' >> /entrypoint.sh
 
 # 3. Sondes et Actions dynamiques
 RUN echo '#!/bin/bash' > /check_health.sh && \
     echo 'if [ -f /tmp/force_backup ]; then exit 0; fi' >> /check_health.sh && \
-    echo 'PATTERN=$(python3 -c "import json; d=json.load(open(\"/config/config_cluster.json\"))[\"services_surveilles\"]; print(\"|\".join(d.keys()))")' >> /check_health.sh && \
-    echo 'docker ps --format "{{.Names}}" | grep -Eq "$PATTERN"' >> /check_health.sh
+    echo '# Sain seulement si CHAQUE service surveillé tourne (audit H3)' >> /check_health.sh && \
+    echo 'for SVC in $(python3 -c "import json; print(\" \".join(json.load(open(\"/config/config_cluster.json\"))[\"services_surveilles\"]))"); do' >> /check_health.sh && \
+    echo '  [ -n "$(docker ps -q --filter name=^${SVC}$ --filter status=running)" ] || exit 1' >> /check_health.sh && \
+    echo 'done' >> /check_health.sh
 
 RUN echo '#!/bin/bash' > /action.sh && \
     echo 'ACTION=$1' >> /action.sh && \
+    echo '# Premier BACKUP au démarrage : rien à arrêter, sinon on coupe le procédé du maître (audit, constat n°3)' >> /action.sh && \
+    echo '# ...mais on pose force_backup comme tout BACKUP : sinon la sonde échoue et le nœud perd 20 de priorité (plus de bascule possible)' >> /action.sh && \
+    echo 'if [ "$ACTION" = "BACKUP" ] && [ -f /tmp/demarrage ]; then rm -f /tmp/demarrage; touch /tmp/force_backup; exit 0; fi' >> /action.sh && \
+    echo 'rm -f /tmp/demarrage' >> /action.sh && \
     echo 'LISTE_CONTENEURS=$(python3 -c "import json; d=json.load(open(\"/config/config_cluster.json\"))[\"services_surveilles\"]; print(\" \".join(d.keys()))")' >> /action.sh && \
     echo 'if [ "$ACTION" = "MASTER" ]; then' >> /action.sh && \
     echo '  rm -f /tmp/force_backup' >> /action.sh && \

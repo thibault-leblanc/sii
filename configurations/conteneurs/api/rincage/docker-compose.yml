@@ -2,7 +2,7 @@ services:
   api_rincage:
     image: api-rincage-image:latest
     container_name: api-rincage
-    restart: unless-stopped
+    restart: "no"  # démarré par l'agent HA (ha-cluster), pas par Docker
     volumes:
       - ./config_api.json:/app/config_api.json
     networks:

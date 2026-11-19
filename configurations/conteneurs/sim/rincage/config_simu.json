@@ -26,6 +26,7 @@
     "debit_pompe_pourcent_sec": 2.5,
     "debit_vanne_pourcent_sec": 3.0,
     "degradation_ph_par_piece": 0.05,
+    "ph_acide_neuf": 7.0,
     "temps_transit_piece_sec": 15
   },
   "initial_state": {

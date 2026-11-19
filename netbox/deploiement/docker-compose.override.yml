@@ -1,0 +1,9 @@
+# À copier dans le dossier netbox-docker cloné (voir netbox/README.md, étape 2).
+# Aucun identifiant ici : l'administrateur est créé à la main avec manage.py createsuperuser.
+services:
+  netbox:
+    ports:
+      - "8000:8080"
+    healthcheck:
+      # Premier démarrage : création de toutes les tables. Plus de 5 min mesurées sur le poste d'admin.
+      start_period: 900s

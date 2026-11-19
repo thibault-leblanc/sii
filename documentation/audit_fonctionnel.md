@@ -302,3 +302,32 @@ Les phases sont ordonnées par dépendance. La phase 1 correspond à votre objec
 2. Futur VLAN de supervision : quel numéro et quel plan d'adressage ? Le VLAN30 reste-t-il le réseau d'échange OPC-UA entre automates et supervision ?
 3. Défaut en mode manuel : suivre la spécification (tout coupé) ou le code (dépannage possible) ?
 4. Seuil de pH : 5.0 ou 5.5 ?
+
+---
+
+## 10. Suivi des corrections (2026-11-19)
+
+Corrections préparées hors ligne, testées sur le poste d'administration, **à déployer au prochain démarrage** de la plateforme (runbook : `netbox/README.md`, étapes 6 bis et 7).
+
+| Constat | État | Correction | Vérification |
+|---|---|---|---|
+| R1 | ❌ Constat erroné | `sim/rincage/requirements.txt` contient `pymodbus==3.4.0` depuis le 2026-05-29. | — |
+| R2 | ✅ | Versions figées par image : automate `pymodbus==3.16.2`, simulateur `pymodbus==3.4.0` (la migration du simulateur vers l'API serveur 3.10+ reste à faire avant pymodbus v4). | Les deux images réelles dialoguent en Modbus TCP (lecture, écriture, physique). |
+| P1 | ✅ | Deux causes. Simulateur : l'acide neuf se mélange et remonte le pH. Automate : après la purge, phase de **remplissage en acide neuf** jusqu'à 80 % sans test du pH, puis reprise de la production. La correction du seul simulateur ne suffisait pas : cuve vide, le pH du fond restait < 5 et la purge repartait aussitôt. | `tests/test_procede.py` : 4 h simulées, cycles production → vidange → remplissage → production, pH revenu à 6,95–7,00. |
+| P7 | ✅ | Le volume initial suit `initial_state.niveau_acide`. | Test unitaire. |
+| H3 | ✅ | La sonde exige que **chaque** service surveillé tourne. | Script testé dans l'image. |
+| H8 (part.) | ✅ | Le chargeur ne lit plus que `~/images` (`.tar` du FTP ignorés). | Script testé dans l'image. |
+| D3 (part.) | ✅ | `ConnectTimeout=5` sur rsync : un nœud éteint ne bloque plus l'autre. Les cibles restent séquentielles. | Script testé dans l'image. |
+| H1 | ⚠️ Contourné | Sur le passif, les conteneurs sont **créés** (`docker compose create`) sans être démarrés : le basculement passe par `docker start`. Le repli `docker compose up` de l'agent reste à corriger (phase 2). | — |
+
+Constats issus de la revue de code du 2026-11-19 (hors du tableau §4 à §6) :
+
+| Constat | Correction |
+|---|---|
+| Lecture Modbus incomplète : niveau absent lu comme 0 % → pompe en marche, alarme absente lue comme « pas d'alarme ». | Toutes les sorties coupées tant que la lecture terrain est incomplète (`logique.py`). |
+| Un `.tar` déposé sur le FTP VLAN20 pouvait remplacer une image et s'exécuter sur pi31/pi32. | Chargeur limité à `~/images` ; mot de passe FTP sorti du compose (fichier `.env` sur pi51). |
+| Le redémarrage de l'agent HA arrêtait le procédé sur le maître ; au redémarrage de pi32, Docker relançait l'automate en doublon d'IP. | Premier BACKUP du démarrage ignoré ; automate et simulateur en `restart: "no"`. |
+| `rsync --delete` depuis une source vide effaçait les répliques. | Synchro suspendue tant que la source est vide. |
+| Les dossiers de build de l'automate et du simulateur contiennent l'image `.tar` précédente (131 Mo) : avec `COPY . .`, toute reconstruction l'aurait embarquée dans la nouvelle image. | `.dockerignore` dans chaque dossier de build (images reconstruites : taille inchangée). |
+
+Restent ouverts : P2 à P6, P8 à P10, H2, H4 à H7, H9, H10, D1, D2, D4 à D11, R3 à R6, et les questions du §9. La source de vérité IaC passe à NetBox (`netbox/`) : les constats I1 à I9 y sont corrigés dans les données, S1 à S6 sont devenus des points à vérifier au démarrage (`a_verifier`), et D11 sera détecté par `derive.py`.

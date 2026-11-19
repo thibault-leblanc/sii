@@ -1,0 +1,2 @@
+pynetbox>=7.9   # jetons v2 (nbt_...) de NetBox 4.5+
+pyyaml>=6

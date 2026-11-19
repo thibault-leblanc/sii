@@ -2,7 +2,7 @@ services:
   simulateur_acide:
     image: simu-rincage-image:latest
     container_name: sim-rincage
-    restart: unless-stopped
+    restart: "no"  # démarré par l'agent HA (ha-cluster), pas par Docker
     volumes:
       - ./config_simu.json:/app/config_simu.json
     networks:

@@ -1,2 +1,2 @@
-pymodbus>=3.6.8
+pymodbus==3.16.2  # figé (audit R2) : device_id= exige >= 3.10 ; testé contre le simulateur en 3.4.0
 asyncua==1.1.5

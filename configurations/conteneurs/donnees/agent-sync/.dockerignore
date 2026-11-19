@@ -1,0 +1,4 @@
+# Ne pas embarquer les anciennes images ni les fichiers de travail dans l image
+*.tar
+*.tar.old
+__pycache__/

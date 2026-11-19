@@ -1,0 +1,254 @@
+# Source de vérité initiale de la plateforme SII, à charger dans NetBox (outils/importer.py).
+#
+# Construite le 2026-11-19 depuis iaac/infrastructure.json (v1.4.0), les netplan réels,
+# les docker-compose et config_cluster.json du repo, avec les corrections de l'audit
+# (documentation/audit_fonctionnel.md, §2.1) :
+#   I1  pi51 a son interface eth0.10 (192.168.10.12), comme dans son netplan réel
+#   I2  la route par défaut suit l'interface principale (eth0.10), même virtuelle
+#   I3  plus de 'hote_parent' : un service cible un cluster
+#   I4  ha-cluster est rattaché au VLAN10 via le groupe VRRP, plus au VLAN20
+#   I5  la config HA (config_cluster.json) est générée depuis le groupe VRRP et les services 'ha'
+#   I6  port2 du commutateur sans l'IP .11 (copie de pi32)
+#   I7  'source' pointe vers les vrais dossiers du repo
+#   I9  plus de 'ip_gestion' sur l'interface eth0 de pi32
+#
+# Après l'import, NetBox fait foi. Ce fichier n'est plus édité à la main :
+# il est réécrit par outils/exporter.py et sert de copie versionnée dans git.
+
+a_verifier:
+  - "Pare-feu : fabricant, modèle et noms réels des interfaces (wan, vlan10, vlan20, vlan30)."
+  - "Commutateur : port réel du poste d'administration, port1 ou port2 ? (audit I6, S3)"
+  - "Commutateur : le port4 va-t-il à pi32 (IaaC) ou à pi51 (draw.io) ? Port de pi51 inconnu. (audit S1)"
+  - "Commutateur : le trunk de pi31 (port3) porte-t-il bien le VLAN30 ? (audit S2)"
+  - "Commutateur : que représente srv1 sur le port5 du draw.io ? (audit S3)"
+  - "Dossiers réels des docker-compose sur chaque nœud (champ 'chemin'). collecte.sh + derive.py le donnent. (audit I8)"
+  - "Clients FTP réels des VLAN20 et VLAN30 : aucun n'est déclaré."
+  - "Système et modèle du poste d'administration."
+
+site: {nom: SII Lab, slug: sii-lab}
+dns: [1.1.1.1, 8.8.8.8]
+
+vlans:
+  10: {nom: VLAN10, description: Réseau Infrastructure & Administration, prefixe: 192.168.10.0/24}
+  20: {nom: VLAN20, description: Réseau Terrain (Modbus/IO) CIM1-CIM2, prefixe: 192.168.20.0/24,
+       plage_macvlan: 192.168.20.16/28}
+  30: {nom: VLAN30, description: Réseau Supervision (OPC-UA/SCADA) CIM2-CIM3, prefixe: 192.168.30.0/24,
+       plage_macvlan: 192.168.30.16/28}
+
+roles:
+  pare-feu: {nom: Pare-feu, couleur: f44336}
+  commutateur: {nom: Commutateur, couleur: 2196f3}
+  noeud-fonctionnel: {nom: Nœud fonctionnel, couleur: 4caf50}
+  noeud-infra: {nom: Nœud infra, couleur: 9c27b0}
+  poste-admin: {nom: Poste d'administration, couleur: 607d8b}
+  conteneur: {nom: Conteneur, couleur: ff9800, vm: true}
+
+plateformes:
+  ubuntu-26-04: Ubuntu Server 26.04
+
+types:
+  rpi-3b: {fabricant: Raspberry Pi, modele: Raspberry Pi 3 Model B}
+  rpi-5: {fabricant: Raspberry Pi, modele: Raspberry Pi 5}
+  dgs-1210-10mp: {fabricant: D-Link, modele: DGS-1210-10MP}
+  pare-feu-a-verifier: {fabricant: A vérifier, modele: Pare-feu (à vérifier)}
+  pc-generique: {fabricant: Générique, modele: PC}
+
+clusters:
+  fonctionnel: "Porte le métier : automates, simulations."
+  infra: "Services de socle : données de la plateforme, gestion HA et conteneurs."
+
+equipements:
+  pare-feu:
+    type: pare-feu-a-verifier
+    role: pare-feu
+    description: Segmentation infrastructure / extérieur, passerelle de chaque VLAN
+    interfaces:
+      wan: {ip: 192.168.1.197/24}
+      vlan10: {vlan: 10, ip: 192.168.10.1/24, cable: commutateur/port6}
+      vlan20: {vlan: 20, ip: 192.168.20.1/24, cable: commutateur/port7}
+      vlan30: {vlan: 30, ip: 192.168.30.1/24, cable: commutateur/port8}
+
+  commutateur:
+    type: dgs-1210-10mp
+    role: commutateur
+    description: Distribution
+    interfaces:
+      gestion: {type: virtual, vlan: 10, ip: 192.168.10.90/24, principale: true}
+      port2: {vlan: 10, description: "Accès VLAN10 (poste d'administration ?)"}
+      port3: {vlans: [10, 20, 30], description: trunk pi31}
+      port4: {vlans: [10, 20, 30], description: trunk pi32}
+      port6: {vlan: 10, description: pare-feu VLAN10}
+      port7: {vlan: 20, description: pare-feu VLAN20}
+      port8: {vlan: 30, description: pare-feu VLAN30}
+
+  pi31:
+    type: rpi-3b
+    role: noeud-fonctionnel
+    plateforme: ubuntu-26-04
+    cluster: fonctionnel
+    description: Hôte de calcul Edge (actif)
+    contexte: {racine_projets: /home/pi31, stockage_persistant: /home/pi31/donnees}
+    interfaces:
+      eth0: {vlans: [10, 20, 30], cable: commutateur/port3}
+      eth0.10: {parent: eth0, vlan: 10, ip: 192.168.10.10/24, principale: true}
+      eth0.20: {parent: eth0, vlan: 20}
+      eth0.30: {parent: eth0, vlan: 30}
+    ports:
+      ssh: {proto: tcp, ports: [22], clients: [sync-vlan-20, sync-vlan-30, poste-admin]}
+
+  pi32:
+    type: rpi-3b
+    role: noeud-fonctionnel
+    plateforme: ubuntu-26-04
+    cluster: fonctionnel
+    description: Hôte de calcul Edge (relais / passif)
+    contexte: {racine_projets: /home/pi32, stockage_persistant: /home/pi32/donnees}
+    interfaces:
+      eth0: {vlans: [10, 20, 30], cable: commutateur/port4}
+      eth0.10: {parent: eth0, vlan: 10, ip: 192.168.10.11/24, principale: true}
+      eth0.20: {parent: eth0, vlan: 20}
+      eth0.30: {parent: eth0, vlan: 30}
+    ports:
+      ssh: {proto: tcp, ports: [22], clients: [sync-vlan-20, sync-vlan-30, poste-admin]}
+
+  pi51:
+    type: rpi-5
+    role: noeud-infra
+    plateforme: ubuntu-26-04
+    cluster: infra
+    description: Stockage central et registre d'images
+    contexte: {racine_projets: /home/pi51, stockage_persistant: /home/pi51/donnees}
+    interfaces:
+      eth0: {vlans: [10, 20, 30]}
+      eth0.10: {parent: eth0, vlan: 10, ip: 192.168.10.12/24, principale: true}
+      eth0.20: {parent: eth0, vlan: 20}
+      eth0.30: {parent: eth0, vlan: 30}
+    ports:
+      ssh: {proto: tcp, ports: [22], clients: [poste-admin]}
+
+  poste-admin:
+    type: pc-generique
+    role: poste-admin
+    description: Poste d'administration, héberge le SCADA FUXA de dev (Docker Desktop)
+    interfaces:
+      eth0: {vlan: 10, ip: 192.168.10.49/24, principale: true}
+    ports:
+      fuxa: {proto: tcp, ports: [1881], description: IHM FUXA (conteneur scada-dev)}
+
+vrrp:
+  coeur-sii:
+    vrid: 51
+    vip: 192.168.10.251/24
+    interface: eth0.10
+    membres: {pi31: 100, pi32: 90}
+
+# Un service est déployé sur chaque membre de son cluster.
+# 'ha: true' : démarré seulement sur le nœud maître par l'agent HA (config_cluster.json).
+# 'compose' : le service docker-compose sans ses réseaux, générés depuis 'ip'.
+services:
+  sim-rincage:
+    cluster: fonctionnel
+    ha: true
+    description: Simulation physique du tambour de rinçage
+    source: configurations/conteneurs/sim/rincage
+    chemin: simulation/rincage
+    ip: {vlan20: 192.168.20.10/24}
+    ports:
+      modbus: {proto: tcp, ports: [502], clients: [api-rincage]}
+    compose:
+      service: simulateur_acide
+      image: simu-rincage-image:latest
+      container_name: sim-rincage
+      restart: "no"  # démarré par l'agent HA, pas par Docker
+      volumes: [./config_simu.json:/app/config_simu.json]
+
+  api-rincage:
+    cluster: fonctionnel
+    ha: true
+    description: Automate de contrôle et serveur OPC-UA
+    source: configurations/conteneurs/api/rincage
+    chemin: api/rincage
+    ip: {vlan20: 192.168.20.20/24, vlan30: 192.168.30.20/24}
+    ports:
+      opcua: {proto: tcp, ports: [4840], ip: 192.168.30.20/24, clients: [poste-admin]}
+    compose:
+      service: api_rincage
+      image: api-rincage-image:latest
+      container_name: api-rincage
+      restart: "no"  # démarré par l'agent HA, pas par Docker
+      volumes: [./config_api.json:/app/config_api.json]
+
+  ha-cluster:
+    cluster: fonctionnel
+    description: Agent de haute disponibilité (keepalived), réseau de l'hôte
+    source: configurations/conteneurs/cluster
+    chemin: ha-cluster
+    compose:
+      service: ha-cluster
+      image: agent-ha:latest
+      container_name: ha-cluster
+      restart: unless-stopped
+      network_mode: host
+      privileged: true
+      volumes: [/var/run/docker.sock:/var/run/docker.sock, "../:/config:ro"]
+
+  donnees-vlan-20:
+    cluster: infra
+    description: Serveur FTP, ingestion du réseau terrain
+    source: configurations/conteneurs/donnees/serveur
+    chemin: donnees-vlan-20
+    ip: {vlan20: 192.168.20.30/24}
+    ports:
+      ftp: {proto: tcp, ports: [21, 21000-21010]}
+    compose:
+      service: donnees-vlan-20
+      image: serveur-ftp:latest
+      container_name: donnees-vlan-20
+      restart: unless-stopped
+      # Le mot de passe n'est pas stocké dans NetBox : il est lu dans le .env du dossier.
+      environment: [FTP_USER=admin, "FTP_PASS=${FTP_PASS:?definir FTP_PASS dans .env}"]
+      volumes: [/home/pi51/donnees/vlan20:/partage]
+
+  sync-vlan-20:
+    cluster: infra
+    description: Agent rsync, réplication du VLAN20 vers le cluster fonctionnel
+    source: configurations/conteneurs/donnees/agent-sync
+    chemin: sync-vlan-20
+    ip: {vlan20: 192.168.20.31/24}
+    compose:
+      service: sync-vlan-20
+      image: agent-sync:latest
+      container_name: sync-vlan-20
+      restart: unless-stopped
+      environment: [VLAN_CIBLE=vlan20]
+      volumes: [/home/pi51/donnees/vlan20/donnees:/donnees:ro, /home/pi51/.ssh/id_rsa:/root/.ssh/id_rsa:ro]
+
+  donnees-vlan-30:
+    cluster: infra
+    description: Serveur FTP, ingestion du réseau de supervision
+    source: configurations/conteneurs/donnees/serveur
+    chemin: donnees-vlan-30
+    ip: {vlan30: 192.168.30.30/24}
+    ports:
+      ftp: {proto: tcp, ports: [21, 21000-21010]}
+    compose:
+      service: donnees-vlan-30
+      image: serveur-ftp:latest
+      container_name: donnees-vlan-30
+      restart: unless-stopped
+      environment: [FTP_USER=admin, "FTP_PASS=${FTP_PASS:?definir FTP_PASS dans .env}"]
+      volumes: [/home/pi51/donnees/vlan30:/partage]
+
+  sync-vlan-30:
+    cluster: infra
+    description: Agent rsync, réplication du VLAN30 vers le cluster fonctionnel
+    source: configurations/conteneurs/donnees/agent-sync
+    chemin: sync-vlan-30
+    ip: {vlan30: 192.168.30.31/24}
+    compose:
+      service: sync-vlan-30
+      image: agent-sync:latest
+      container_name: sync-vlan-30
+      restart: unless-stopped
+      environment: [VLAN_CIBLE=vlan30]
+      volumes: [/home/pi51/donnees/vlan30/donnees:/donnees:ro, /home/pi51/.ssh/id_rsa:/root/.ssh/id_rsa:ro]
