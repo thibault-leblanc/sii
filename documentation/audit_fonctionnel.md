@@ -331,3 +331,27 @@ Constats issus de la revue de code du 2026-11-19 (hors du tableau §4 à §6) :
 | Les dossiers de build de l'automate et du simulateur contiennent l'image `.tar` précédente (131 Mo) : avec `COPY . .`, toute reconstruction l'aurait embarquée dans la nouvelle image. | `.dockerignore` dans chaque dossier de build (images reconstruites : taille inchangée). |
 
 Restent ouverts : P2 à P6, P8 à P10, H2, H4 à H7, H9, H10, D1, D2, D4 à D11, R3 à R6, et les questions du §9. La source de vérité IaC passe à NetBox (`netbox/`) : les constats I1 à I9 y sont corrigés dans les données, S1 à S6 sont devenus des points à vérifier au démarrage (`a_verifier`), et D11 sera détecté par `derive.py`.
+
+### 10.1 Audit actif et remise en état (2026-11-22)
+
+Détail heure par heure : `documentation/journal_exploitation.md`. État final : **0 écart** entre les trois Pi et NetBox,
+pi31 maître, pi32 passif, réplication VLAN20 opérationnelle.
+
+| Constat | Correction |
+|---|---|
+| L'agent HA n'avait **jamais pu démarrer** : `/etc/keepalived` absent de l'image (déjà vrai sur l'image d'août). | Dossier créé dans le Dockerfile, Alpine figée (R4). |
+| pi32 n'avait aucune image ni conteneur : la HA n'avait jamais été déployée. | Déployé : images, compose générés, conteneurs créés arrêtés, agent. |
+| Image `agent-sync` déployée périmée (`vlan20` en dur) : l'agent VLAN30 effaçait la réplique VLAN20 à chaque cycle (D1 aggravé). | Image reconstruite depuis le repo et redéployée ; répliques stables. |
+| Compose de l'automate et du simulateur dans le même projet `rincage` (orphelins croisés). | Nom de projet explicite dans les compose générés. |
+| Sonde HA > 2 s sur Pi 3B : priorité oscillante, bascules intempestives. | Sonde en un appel Docker, `interval 5 / timeout 4 / fall 2`. |
+| Transitions keepalived exécutées en parallèle : doublon d'IP constaté (~6 min) sous charge. | Transitions sérialisées (dernier état voulu), garde-fou indépendant (sans VIP → arrêt sous 20 s). |
+| Arrêt de l'agent du maître sans arrêt de ses services → doublon. | `notify_stop` + `stop_grace_period: 30s`. |
+| H2 (préemption, allers-retours) | ✅ `nopreempt` : retour sur le nœud nominal par un geste explicite. |
+| H1 (repli `compose up` cassé) | ✅ Supprimé : conteneurs créés d'avance sur chaque nœud (`docker compose create`). |
+| Scripts de l'agent dans le Dockerfile (constat n°8 de la revue) | ✅ Scripts en fichiers (`cluster/scripts/`), testés en image. |
+| Fins de ligne : `core.autocrlf=true` sur le poste d'administration, un `.sh` copié en CRLF ne s'exécute pas. | `.gitattributes` (LF pour scripts, YAML, JSON, Python, Dockerfile) et normalisation. |
+| I8 (dossiers de déploiement) | ✅ Relevé sur pi51 et corrigé dans NetBox (`~/agent-sync/sync-vlan-XX`). |
+| R5 (scripts dupliqués), copies manuelles des fichiers générés | ✅ `installation_docker.sh` unique ; compose, netplan, `creation_vlan.sh`, `config_cluster.json` et scripts de déploiement manuels retirés du repo (générés depuis NetBox). |
+
+Nouveaux constats ouverts : `unattended-upgrades` sature un Pi 3B après un recalage d'horloge ; horloge des nœuds
+dépendante d'Internet (NTS, 2 h pour se recaler) ; le FTP VLAN20 sert encore de dépôt d'artefacts de déploiement sur pi51.
