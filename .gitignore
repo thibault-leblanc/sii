@@ -5,3 +5,8 @@
 # NetBox : fichiers générés, et relevés des nœuds (contiennent des secrets via docker inspect)
 netbox/genere/
 netbox/collecte/
+
+# Sorties locales
+graphify-out/
+__pycache__/
+*.pyc

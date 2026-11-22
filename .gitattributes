@@ -1,0 +1,15 @@
+# Fins de ligne : les fichiers exécutés ou lus sur les Pi restent en LF, même extraits sous Windows
+# (core.autocrlf=true sur le poste d'administration : un script .sh en CRLF ne s'exécute pas sous Linux).
+* text=auto
+*.sh text eol=lf
+Dockerfile text eol=lf
+*.py text eol=lf
+*.yml text eol=lf
+*.yaml text eol=lf
+*.json text eol=lf
+*.conf text eol=lf
+# Binaires
+*.tar binary
+*.db binary
+*.pdf binary
+*.png binary
