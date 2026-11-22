@@ -1,33 +1,28 @@
-# 🔄 Agent de Synchronisation Rsync
+# 🔄 Agent de synchronisation rsync
 
-Ce conteneur a pour rôle de répliquer en continu les données depuis le nœud de stockage central vers les nœuds Edge (`pi31`, `pi32`). Basé sur Alpine Linux, il utilise `rsync` au travers de tunnels SSH.
+Réplique en continu le dossier de données d'un VLAN, depuis `pi51`, vers les nœuds du cluster fonctionnel
+(`pi31`, `pi32`). Image Alpine avec `rsync` et un client SSH.
 
-## ⚙️ Fonctionnement
+## Fonctionnement
 
-* **Boucle infinie :** Le conteneur exécute un script (`sync.sh`) qui déclenche une synchronisation toutes les 60 secondes.
-* **Incrémental et Sécurisé :** Les transferts se font de manière incrémentale. Le volume de données source est monté en lecture seule (`:ro`) pour éviter toute altération accidentelle sur le serveur central.
-* **Ciblage dynamique :** Le dossier de destination sur les nœuds Edge est déterminé par la variable d'environnement `$VLAN_CIBLE`. Cela permet d'utiliser la même image Docker pour synchroniser des données vers différents répertoires de VLAN sans conflit de suppression (Split-Brain).
+* **Boucle** : `sync.sh` lance une synchronisation toutes les 60 s, vers chaque nœud l'un après l'autre.
+* **Source en lecture seule** : le dossier du VLAN est monté en `:ro` sur `/donnees`.
+* **Cible** : `/home/<nœud>/donnees/$VLAN_CIBLE/donnees/`. Une seule image sert pour tous les VLAN.
+* **Garde-fous** (2026-11) :
+  * source vide ou absente : synchro suspendue (avec `--delete`, elle viderait les répliques) ;
+  * `ConnectTimeout=5` : un nœud éteint ne bloque pas la synchro de l'autre.
 
-## 🚀 Utilisation et Déploiement
+Incident du 2026-11-22 : l'image déployée depuis juin avait `vlan20` écrit en dur. L'agent du VLAN30
+synchronisait donc son dossier vide vers le dossier VLAN20 des nœuds, et l'effaçait à chaque cycle. Toujours
+reconstruire l'image depuis ce dossier (`configurations/construire_images.sh`) après une modification.
 
-### 1. Construction de l'image de base
+## Déploiement
+
+Le compose est généré depuis NetBox (`netbox/README.md`). Construction de l'image :
 
 ```bash
-docker build -t agent-sync:latest .
+sh configurations/construire_images.sh agent-sync
 ```
 
-### 2. Déploiement dynamique
-
-Le script `deploiement_sync.sh` génère l'infrastructure as code du conteneur en injectant la variable de ciblage et en gérant les clés SSH requises pour l'authentification automatique.
-
-**Syntaxe :**
-```bash
-./deploiement_sync.sh <NUMERO_VLAN> <IP_CONTENEUR> <NOM_MACVLAN>
-```
-
-**Exemple de déploiement pour les données du VLAN 20 :**
-```bash
-./deploiement_sync.sh 20 192.168.20.31 vlan20
-```
-
-Le script montera automatiquement la clé SSH de l'hôte (`/home/pi51/.ssh/id_rsa`) ainsi que le dossier de données source correspondant (`/home/pi51/donnees/vlan20/donnees`).
+La clé SSH de `pi51` (`~/.ssh/id_rsa`) est montée en lecture seule. Sa clé publique doit figurer dans
+`~/.ssh/authorized_keys` de chaque nœud cible (à refaire après la réinstallation d'un nœud).

@@ -24,3 +24,4 @@ construire api-rincage   api-rincage-image:latest  conteneurs/api/rincage
 construire sim-rincage   simu-rincage-image:latest conteneurs/sim/rincage
 construire agent-ha      agent-ha:latest           conteneurs/cluster
 construire agent-sync    agent-sync:latest         conteneurs/donnees/agent-sync
+construire serveur-ftp   serveur-ftp:latest        conteneurs/donnees/serveur

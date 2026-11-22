@@ -1,15 +1,25 @@
-# 🗄️ Gestion des Données (Stockage & Réplication)
+# 🗄️ Gestion des données (stockage et réplication)
 
-Ce répertoire regroupe les briques d'infrastructure responsables de l'ingestion et de la distribution des données au sein du Système d'Information Industriel (SII). Hébergés sur le nœud central (`pi51`), ces services assurent la liaison entre les équipements de terrain et les nœuds de calcul Edge (`pi31`, `pi32`).
+Ce répertoire contient les **images** des services de données, hébergés sur le nœud central `pi51` (cluster `infra`) :
 
-## 🏗️ Architecture
+1. **[Serveur FTP](./serveur/)** : ingestion des fichiers déposés par les équipements, un serveur par VLAN (20, 30).
+2. **[Agent de synchronisation](./agent-sync/)** : réplication unidirectionnelle, toutes les 60 s, du dossier de chaque
+   VLAN vers les nœuds du cluster `fonctionnel` (`pi31`, `pi32`).
 
-Le flux de données repose sur deux composants complémentaires et découplés :
-1. **[Serveur FTP](./serveur-ftp/) :** Gère l'ingestion des fichiers (configurations, logs, relevés) provenant des différents réseaux (VLAN20, VLAN30).
-2. **[Agent de Synchronisation](./agent-sync/) :** Assure la réplication incrémentale et unilatérale des données ingérées vers les nœuds de calcul Edge du cluster haute disponibilité (`ha-cluster`).
+Chaque VLAN a son couple FTP + agent : un agent ne voit que les données de son VLAN, montées en lecture seule.
 
-## 🔄 Principe de fonctionnement
+## Déploiement
 
-Afin de garantir une stricte ségrégation des réseaux (VLAN), chaque sous-réseau dispose de son propre couple de conteneurs (1 FTP + 1 Agent Sync). 
+Le déploiement **ne se fait plus à la main** : adresses IP, réseaux macvlan, dossiers et variables sont décrits
+dans NetBox, et les `docker-compose.yml` sont générés (`netbox/outils/generer.py`, puis `genere/pi51/`).
+Voir `netbox/README.md`. Les images se construisent avec `sh configurations/construire_images.sh`.
 
-Les scripts de déploiement permettent de générer à la volée les fichiers `docker-compose.yml` en injectant les bonnes adresses IP (via réseau Macvlan) et les variables d'environnement spécifiques au réseau ciblé.
+| Service | Dossier sur pi51 | Données |
+|---|---|---|
+| `donnees-vlan-20` | `~/donnees-vlan-20` | racine FTP `~/donnees/vlan20` |
+| `donnees-vlan-30` | `~/donnees-vlan-30` | racine FTP `~/donnees/vlan30` |
+| `sync-vlan-20` | `~/agent-sync/sync-vlan-20` | `~/donnees/vlan20/donnees` → `~/donnees/vlan20/donnees` des nœuds |
+| `sync-vlan-30` | `~/agent-sync/sync-vlan-30` | `~/donnees/vlan30/donnees` → `~/donnees/vlan30/donnees` des nœuds |
+
+Le mot de passe FTP n'est ni dans le repo ni dans NetBox : il est lu dans le fichier `.env` (droits 600) du
+dossier de chaque serveur FTP.
