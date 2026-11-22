@@ -11,11 +11,9 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "outils"))
 
 from derive import ECART, deriver  # noqa: E402
 from generer import flux, generer  # noqa: E402
-from modele import (RACINE_REPO, charger, differences, normaliser, ports_compacts,  # noqa: E402
+from modele import (charger, differences, normaliser, ports_compacts,  # noqa: E402
                     ports_explicites, reseaux_macvlan, valider)
 
-MACHINES = RACINE_REPO / "configurations" / "machines"
-CONTENEURS = RACINE_REPO / "configurations" / "conteneurs"
 
 
 def lire_yaml(texte_ou_chemin):
@@ -65,52 +63,87 @@ class TestModele(unittest.TestCase):
 
 
 class TestGeneration(unittest.TestCase):
-    """Le modèle pré-rempli doit redonner les fichiers qui tournent aujourd'hui."""
+    """Ce que le générateur doit produire.
+
+    Valeurs relevées sur la plateforme le 2026-11-22 (derive.py : 0 écart). Les copies manuelles qui servaient
+    de référence dans configurations/ ont été retirées : elles sont générées depuis NetBox.
+    """
 
     @classmethod
     def setUpClass(cls):
         cls.m = charger()
         cls.f = generer(cls.m)
 
-    def test_netplan_identique_a_l_existant(self):
-        for n in ("pi31", "pi32", "pi51"):
+    def test_netplan(self):
+        for n, ip in (("pi31", "192.168.10.10/24"), ("pi32", "192.168.10.11/24"), ("pi51", "192.168.10.12/24")):
             with self.subTest(noeud=n):
-                self.assertEqual(lire_yaml(self.f[f"{n}/99-{n}-netplan.yaml"]),
-                                 lire_yaml(MACHINES / n / f"99-{n}-netplan.yaml"))
+                reseau = lire_yaml(self.f[f"{n}/99-{n}-netplan.yaml"])["network"]
+                self.assertEqual(reseau["ethernets"], {"eth0": {"dhcp4": False, "dhcp6": False}})
+                self.assertEqual(reseau["vlans"]["eth0.10"], {
+                    "id": 10, "link": "eth0", "dhcp4": False, "addresses": [ip],
+                    "routes": [{"to": "default", "via": "192.168.10.1"}],  # route sur l'interface virtuelle (I2)
+                    "nameservers": {"addresses": ["1.1.1.1", "8.8.8.8"]}})
+                self.assertEqual(reseau["vlans"]["eth0.20"], {"id": 20, "link": "eth0"})  # pas d'IP : conteneurs
+                self.assertEqual(reseau["vlans"]["eth0.30"], {"id": 30, "link": "eth0"})
 
-    def test_compose_identique_a_l_existant(self):
-        for genere, existant in (("pi31/api/rincage", "api/rincage"),
-                                 ("pi31/simulation/rincage", "sim/rincage"),
-                                 ("pi32/ha-cluster", "cluster")):
-            with self.subTest(service=existant):
-                attendu = lire_yaml(CONTENEURS / existant / "docker-compose.yml")
-                attendu.pop("version", None)  # obsolète (audit R4)
-                self.assertEqual(lire_yaml(self.f[f"{genere}/docker-compose.yml"]), attendu)
+    def test_compose_automate(self):
+        doc = lire_yaml(self.f["pi31/api/rincage/docker-compose.yml"])
+        self.assertEqual(doc["services"]["api_rincage"], {
+            "image": "api-rincage-image:latest", "container_name": "api-rincage", "restart": "no",
+            "volumes": ["./config_api.json:/app/config_api.json"],
+            "networks": {"vlan20": {"ipv4_address": "192.168.20.20"}, "vlan30": {"ipv4_address": "192.168.30.20"}}})
+        self.assertEqual(doc["networks"], {"vlan20": {"external": True}, "vlan30": {"external": True}})
 
-    def test_compose_ftp_equivalent(self):
-        g = lire_yaml(self.f["pi51/donnees-vlan-20/docker-compose.yml"])["services"]["donnees-vlan-20"]
-        e = lire_yaml(CONTENEURS / "donnees/serveur/docker-compose.yml")["services"]["donnees-vlan-20"]
-        self.assertEqual(g["volumes"], e["volumes"])
-        self.assertEqual(g["networks"]["vlan20"], e["networks"]["reseau_macvlan"])
-        self.assertNotIn("FTP_PASS=admin", g["environment"])  # le secret ne vient plus du modèle
+    def test_compose_agent_ha(self):
+        s = lire_yaml(self.f["pi32/ha-cluster/docker-compose.yml"])["services"]["ha-cluster"]
+        self.assertEqual((s["network_mode"], s["privileged"], s["stop_grace_period"]), ("host", True, "30s"))
+        self.assertIn("../:/config:ro", s["volumes"])
+        self.assertIn("../.agent-ha:/etat", s["volumes"])  # marques d'images chargées, persistantes
+        self.assertNotIn("networks", s)
 
-    def test_config_cluster_identique_a_l_existant(self):
-        attendu = json.loads((CONTENEURS / "cluster/config_cluster.json").read_text(encoding="utf-8"))
+    def test_noms_de_projet_compose_uniques(self):
+        noms = {lire_yaml(c)["name"] for p, c in self.f.items() if p.startswith("pi31/") and p.endswith("compose.yml")}
+        self.assertEqual(noms, {"api-rincage", "sim-rincage", "ha-cluster"})
+
+    def test_compose_ftp_sans_secret(self):
+        s = lire_yaml(self.f["pi51/donnees-vlan-20/docker-compose.yml"])["services"]["donnees-vlan-20"]
+        self.assertEqual(s["volumes"], ["/home/pi51/donnees/vlan20:/partage"])
+        self.assertEqual(s["networks"], {"vlan20": {"ipv4_address": "192.168.20.30"}})
+        self.assertIn("FTP_PASS=${FTP_PASS:?definir FTP_PASS dans .env}", s["environment"])
+
+    def test_config_cluster(self):
+        attendu = {"vip_admin": "192.168.10.251", "vrid": 51, "interface_heartbeat": "eth0.10",
+                   "services_surveilles": {
+                       n: {"nom_conteneur": n, "chemin_compose": c, "priorite_pi31": 100, "priorite_pi32": 90}
+                       for n, c in (("api-rincage", "api/rincage"), ("sim-rincage", "simulation/rincage"))}}
         for n in ("pi31", "pi32"):
             self.assertEqual(json.loads(self.f[f"{n}/config_cluster.json"]), attendu)
 
-    def test_macvlan_identique_a_l_existant(self):
-        existant = (MACHINES / "pi31/creation_vlan.sh").read_text(encoding="utf-8")
-        for arg in ("parent=eth0.20", "--subnet=192.168.20.0/24", "--gateway=192.168.20.1",
-                    "--ip-range=192.168.20.16/28", "parent=eth0.30", "--ip-range=192.168.30.16/28"):
-            self.assertIn(arg, existant)
-            for n in ("pi31", "pi32", "pi51"):
+    def test_macvlan(self):
+        for n in ("pi31", "pi32", "pi51"):
+            for arg in ("parent=eth0.20", "--subnet=192.168.20.0/24", "--gateway=192.168.20.1",
+                        "--ip-range=192.168.20.16/28", "parent=eth0.30", "--ip-range=192.168.30.16/28"):
                 self.assertIn(arg, self.f[f"{n}/creation_vlan.sh"])
 
     def test_services_deployes_sur_chaque_membre(self):
         self.assertIn("pi32/api/rincage/docker-compose.yml", self.f)
-        self.assertIn("pi51/sync-vlan-30/docker-compose.yml", self.f)
+        self.assertIn("pi51/agent-sync/sync-vlan-30/docker-compose.yml", self.f)  # dossier réel (audit actif)
         self.assertNotIn("pi51/api/rincage/docker-compose.yml", self.f)
+
+    def test_sortie_videe_seulement_si_marquee(self):
+        import tempfile
+        with tempfile.TemporaryDirectory() as d:
+            sortie = Path(d) / "genere"
+            generer(self.m, sortie)
+            (sortie / "pi51" / "perime").mkdir()
+            generer(self.m, sortie)
+            self.assertFalse((sortie / "pi51" / "perime").exists())  # plus de fichier périmé
+            autre = Path(d) / "autre"
+            autre.mkdir()
+            (autre / "precieux.txt").write_text("x")
+            with self.assertRaises(SystemExit):
+                generer(self.m, autre)
+            self.assertTrue((autre / "precieux.txt").exists())
 
     def test_topologie(self):
         page = self.f["topologie.html"]

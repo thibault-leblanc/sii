@@ -15,6 +15,7 @@ et à la racine :
 import argparse
 import ipaddress
 import json
+import shutil
 import sys
 from pathlib import Path
 
@@ -66,7 +67,9 @@ def compose(m, snom):
     ips = s.get("ip") or {}
     if ips:
         corps["networks"] = {r: {"ipv4_address": str(ipaddress.ip_interface(a).ip)} for r, a in ips.items()}
-    doc = {"services": {cle: corps}}
+    # Nom de projet explicite : sinon Compose prend le nom du dossier, et api/rincage et simulation/rincage
+    # partagent le projet « rincage » (chacun voit l'autre comme orphelin, --remove-orphans le supprimerait).
+    doc = {"name": snom, "services": {cle: corps}}
     if ips:
         doc["networks"] = {r: {"external": True} for r in ips}
     return ecrire_yaml(doc, entete=ENTETE)
@@ -219,6 +222,23 @@ def publier(m, noeuds):
     return "\n".join(lignes)
 
 
+MARQUE = ".genere-par-netbox"
+
+
+def vider_sortie(sortie):
+    """Supprime l'ancienne génération : un fichier périmé serait sinon publié sur les nœuds.
+
+    Ne vide qu'un dossier vide ou portant la marque du générateur, jamais un autre dossier.
+    """
+    if sortie.exists() and any(sortie.iterdir()):
+        if not (sortie / MARQUE).exists():
+            sys.exit(f"{sortie} n'est pas un dossier de génération (pas de {MARQUE}) : refus de le vider.")
+        shutil.rmtree(sortie)
+    sortie.mkdir(parents=True, exist_ok=True)
+    (sortie / MARQUE).write_text("Dossier écrit par netbox/outils/generer.py, vidé à chaque génération.\n",
+                                 encoding="utf-8")
+
+
 def generer(m, sortie=None):
     """Retourne {chemin relatif: contenu} et l'écrit dans 'sortie' si fourni."""
     fichiers = {}
@@ -237,6 +257,7 @@ def generer(m, sortie=None):
     fichiers["topologie.html"] = topologie(m)
     fichiers["publier.sh"] = publier(m, noeuds)
     if sortie:
+        vider_sortie(Path(sortie))
         for chemin, contenu in fichiers.items():
             cible = Path(sortie) / chemin
             cible.parent.mkdir(parents=True, exist_ok=True)

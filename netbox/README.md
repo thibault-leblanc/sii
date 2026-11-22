@@ -39,7 +39,10 @@ python outils/generer.py -o genere/       # aperçu des fichiers qui seront dép
 
 Les étapes 2 à 4 n'ont pas besoin des Pi : elles peuvent être faites dès maintenant sur le poste d'administration.
 
-## Jour J
+## Jour J (première mise en service)
+
+> Réalisé le 2026-11-22, avec des écarts de procédure : voir `documentation/journal_exploitation.md`.
+> Pour l'exploitation au quotidien, voir plus bas **Exploitation courante**.
 
 ### 1. Relever l'état réel et finir le modèle
 
@@ -98,8 +101,8 @@ python outils/generer.py -o genere/
 ```
 
 - Relire `genere/matrice_flux.md` : chaque ligne « Pare-feu : oui » demande une règle sur le pare-feu.
-- Comparer avec l'existant, par exemple :
-  `git diff --no-index ../configurations/machines/pi31/99-pi31-netplan.yaml genere/pi31/99-pi31-netplan.yaml`
+- Comparer avec ce qui est déployé, par exemple :
+  `ssh pi31@192.168.10.10 cat ~/api/rincage/docker-compose.yml | diff - genere/pi31/api/rincage/docker-compose.yml`
 
 ### 6. Publier sur les nœuds
 
@@ -197,7 +200,7 @@ ssh pi31@192.168.10.10 'docker stop api-rincage'
 ```
 
 Attendu, en quelques secondes : pi32 prend la VIP et démarre l'automate et le simulateur, pi31 arrête son simulateur.
-Ensuite pi31 reprend la main tout seul (préemption, audit H2), et pi32 s'arrête. Vérifier avec `docker ps` et
+pi31 ne reprend **pas** la main tout seul (`nopreempt`, audit H2) : voir « Revenir sur le nœud nominal ». Vérifier avec `docker ps` et
 `ip -4 addr show eth0.10` sur les deux nœuds, puis relancer « Marche » dans FUXA : une bascule repart à froid (audit H4).
 
 ### 8. Contrôle final : tout est d'équerre
@@ -209,6 +212,52 @@ python outils/derive.py collecte/                                        # 0 éc
 
 Les lignes `INFO` sont normales : la VIP présente sur le maître, et les services HA arrêtés sur le passif.
 
+## Exploitation courante
+
+### Comportement de la haute disponibilité
+
+| Situation | Ce que fait l'agent HA |
+|---|---|
+| État normal | Le maître (pi31 en nominal) porte la VIP 192.168.10.251 et fait tourner l'automate et le simulateur. Le passif a ses conteneurs **créés mais arrêtés**. |
+| Service planté sur le maître | Sonde en échec deux fois de suite (10 s) : priorité 100 − 20 = 80 < 90, le passif prend la main. |
+| Maître éteint ou agent arrêté | L'agent arrête ses services en partant (`notify_stop`), le passif prend la main en 1 à 3 s. |
+| Retour d'un nœud | Il reste passif (`nopreempt`) : pas de reprise automatique, donc pas d'aller-retour. |
+| Services allumés sur un nœud sans VIP | Le garde-fou les arrête au bout de 20 s (doublon d'IP impossible à faire durer). |
+
+Après chaque bascule, le procédé repart à froid : relancer « Marche » dans FUXA (audit H4).
+
+### Gestes à connaître
+
+- **Basculer volontairement** (maintenance du maître) : `docker stop ha-cluster` sur le maître, puis
+  `docker start ha-cluster` quand la maintenance est finie. Il revient en passif.
+- **Revenir sur le nœud nominal** (pi31) : même geste sur le maître du moment (pi32).
+- **Mettre à jour l'agent** : `cd ~/ha-cluster && docker compose up -d` sur le passif d'abord, puis sur le maître
+  (bascule contrôlée).
+- **Automate et simulateur** : ne **jamais** faire `docker compose up` dans leurs dossiers, seulement
+  `docker compose create` (après un changement d'image ou de compose). C'est l'agent qui les démarre.
+- **Nouvelle image** : déposer le `.tar` dans `~/images` du nœud. L'agent la charge dans la minute. Recréer ensuite
+  le conteneur (`docker compose create`) sur le passif, puis basculer.
+
+### (Ré)installer un nœud du cluster fonctionnel
+
+Depuis Git Bash, à la racine du repo (exemple : pi31) :
+
+1. Compte et nom d'hôte `pi31`, IP 192.168.10.10. Clé SSH du poste : `ssh-keygen -R 192.168.10.10`, puis copier
+   `~/.ssh/id_*.pub` dans `~/.ssh/authorized_keys` du nœud.
+2. Docker : `scp configurations/machines/installation_docker.sh pi31@192.168.10.10:` puis `bash installation_docker.sh`.
+3. Fichiers générés : `tar -C netbox/genere/pi31 -cf - . | ssh pi31@192.168.10.10 'tar -C ~ --no-overwrite-dir -xf -'`.
+4. Configuration des applications, version commitée (fins de ligne Linux) :
+   `git show HEAD:configurations/conteneurs/api/rincage/config_api.json | ssh pi31@192.168.10.10 'cat > ~/api/rincage/config_api.json'`
+   (idem `config_simu.json` dans `~/simulation/rincage`).
+5. Images : `scp configurations/images/{api-rincage,sim-rincage,agent-ha}.tar pi31@192.168.10.10:images/`.
+6. Sur le nœud : `sudo install -m 600 ~/99-pi31-netplan.yaml /etc/netplan/ && sudo netplan try`,
+   `sh ~/creation_vlan.sh`, `for t in ~/images/*.tar; do docker load -i "$t"; done`,
+   `mkdir -p ~/donnees/vlan20/donnees ~/donnees/vlan30/donnees`,
+   `docker compose create` dans `~/api/rincage` et `~/simulation/rincage`, puis
+   `cd ~/ha-cluster && docker compose up -d` (le nœud démarre passif).
+7. Synchro : `ssh pi51@192.168.10.12 'cat ~/.ssh/id_rsa.pub' | ssh pi31@192.168.10.10 'cat >> ~/.ssh/authorized_keys'`.
+8. Contrôle : `collecte.sh` puis `derive.py`.
+
 ## Ensuite : modifier la plateforme
 
 1. Modifier dans NetBox (interface web ou API).
@@ -216,8 +265,10 @@ Les lignes `INFO` sont normales : la VIP présente sur le maître, et les servic
 3. Lancer `python outils/generer.py -o genere/`, puis `sh genere/publier.sh --appliquer`, puis appliquer sur le nœud.
 4. Lancer `collecte.sh` puis `derive.py` pour vérifier.
 
-Exemple : corriger le constat n°3 de l'audit revient à passer `restart` à `"no"` dans le `compose` des services `ha`
-(contexte local de la VM dans NetBox), puis à régénérer.
+Exemple (fait le 2026-11-22) : le délai d'arrêt de l'agent HA (`stop_grace_period: 30s`) a été ajouté dans le
+`compose` du contexte local de la VM `ha-cluster` dans NetBox, puis exporté, généré et déployé.
+
+**NetBox fait foi** : ne plus lancer `importer.py` sur `sii.yaml`, il écraserait les modifications faites dans NetBox.
 
 ## Hors périmètre
 
