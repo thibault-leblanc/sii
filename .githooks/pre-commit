@@ -1,0 +1,10 @@
+#!/bin/sh
+# Garde-fou de commit : le repo doit être à jour avec NetBox (netbox/donnees/sii.yaml, iaac/infrastructure.json)
+# et les tests doivent passer. Installation, une fois par clone :  git config core.hooksPath .githooks
+# NetBox est comparé si NETBOX_URL et NETBOX_TOKEN sont définis ; sinon seuls les contrôles hors ligne sont faits.
+python netbox/outils/synchro.py --verifier || {
+    echo ""
+    echo "Commit refusé : lancer « python netbox/outils/synchro.py », relire, puis recommiter."
+    echo "(Contournement exceptionnel, en connaissance de cause : git commit --no-verify)"
+    exit 1
+}

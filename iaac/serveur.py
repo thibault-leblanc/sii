@@ -1,9 +1,14 @@
 import os
 import json
+import sys
 import urllib.parse
 from http.server import BaseHTTPRequestHandler, HTTPServer
 
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+# Le provisioning réutilise le générateur NetBox (netbox/outils) : NetBox est la source de vérité.
+sys.path.insert(0, os.path.join(BASE_DIR, '..', 'netbox', 'outils'))
+import generer  # noqa: E402
+from modele import charger as charger_modele  # noqa: E402
 INFRA_FILE = os.path.join(BASE_DIR, 'infrastructure.json')
 SCHEMA_FILE = os.path.join(BASE_DIR, 'schema.json')
 
@@ -87,7 +92,6 @@ class RequestHandler(BaseHTTPRequestHandler):
             return
             
         node = infra['ressources_physiques'][node_id]
-        reseaux_globaux = infra.get('reseaux_globaux', {})
         
         # --- 1. CHECKLIST D'IMPACT ---
         checklist = "--- ACTIONS REQUISES SUR L'INFRASTRUCTURE ---\n\n"
@@ -107,38 +111,10 @@ class RequestHandler(BaseHTTPRequestHandler):
         if not has_actions:
             checklist += "✓ Aucune dépendance réseau physique documentée.\n"
 
-        # --- 2. CALCUL DU NETPLAN ET DE L'ARBORESCENCE ---
+        # --- 2. NETPLAN : produit par le générateur NetBox (un seul générateur, source de vérité) ---
+        # L'ancien calcul local oubliait la route par défaut sur les interfaces VLAN (audit I2).
         if "ubuntu" in node.get("systeme_exploitation", "").lower():
-            netplan_eth = ""
-            netplan_vlans = ""
-            has_vlans = False
-
-            for iface_name, iface in node.get('interfaces', {}).items():
-                ip_cidr = iface.get('ip', '')
-                gateway = ""
-                
-                # Déduction automatique du masque et de la passerelle
-                if iface.get('vlan_id') and iface['vlan_id'] in reseaux_globaux:
-                    res_global = reseaux_globaux[iface['vlan_id']]
-                    if ip_cidr and '/' not in ip_cidr:
-                        mask = res_global.get('sous_reseau', '').split('/')[1] if '/' in res_global.get('sous_reseau', '') else '24'
-                        ip_cidr = f"{ip_cidr}/{mask}"
-                    gateway = res_global.get('passerelle', '')
-
-                if iface.get('type') == 'virtuelle' and iface.get('vlan_id'):
-                    has_vlans = True
-                    parent_iface = iface_name.split('.')[0]
-                    vlan_num = ''.join(filter(str.isdigit, iface['vlan_id']))
-                    netplan_vlans += f"    {iface_name}:\n      id: {vlan_num}\n      link: {parent_iface}\n      dhcp4: false\n"
-                    if ip_cidr: netplan_vlans += f"      addresses: [{ip_cidr}]\n"
-                else:
-                    netplan_eth += f"    {iface_name}:\n      dhcp4: false\n"
-                    if ip_cidr: netplan_eth += f"      addresses: [{ip_cidr}]\n"
-                    if gateway: netplan_eth += f"      routes:\n        - to: default\n          via: {gateway}\n"
-
-            netplan_yaml = "network:\n  version: 2\n  ethernets:\n" + netplan_eth
-            if has_vlans:
-                netplan_yaml += "  vlans:\n" + netplan_vlans
+            netplan_yaml = generer.netplan(charger_modele(), node_id)
 
             # Préparation des commandes de création de dossiers
             mkdir_cmds = ""

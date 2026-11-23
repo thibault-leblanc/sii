@@ -91,7 +91,8 @@ class TestGeneration(unittest.TestCase):
         self.assertEqual(doc["services"]["api_rincage"], {
             "image": "api-rincage-image:latest", "container_name": "api-rincage", "restart": "no",
             "volumes": ["./config_api.json:/app/config_api.json"],
-            "networks": {"vlan20": {"ipv4_address": "192.168.20.20"}, "vlan30": {"ipv4_address": "192.168.30.20"}}})
+            "networks": {"vlan20": {"ipv4_address": "192.168.20.20"},
+                         "vlan30": {"ipv4_address": "192.168.30.20", "gw_priority": 1}}})  # route par défaut : VLAN30
         self.assertEqual(doc["networks"], {"vlan20": {"external": True}, "vlan30": {"external": True}})
 
     def test_compose_agent_ha(self):
@@ -156,7 +157,7 @@ class TestGeneration(unittest.TestCase):
         self.assertTrue({"pi31", "vlan20", "api-rincage", "cluster:fonctionnel", "vrrp:coeur-sii"} <= ids)
         self.assertTrue(all(l["from"] in ids and l["to"] in ids for l in donnees["liens"]))  # aucun lien orphelin
         rouges = [l for l in donnees["liens"] if l["couche"] == "flux" and l["color"] == "#dc2626"]
-        self.assertEqual(len(rouges), 5)  # les 5 flux qui traversent le pare-feu
+        self.assertEqual(len(rouges), 9)  # rsync x4, et le poste (côté WAN) : SSH x3, OPC-UA, IHM du SCADA
 
     def test_matrice_de_flux(self):
         lignes = {(l["client"], l["service"]): l for l in flux(self.m)}
@@ -232,3 +233,35 @@ class TestDerive(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class TestIaac(unittest.TestCase):
+    """iaac/infrastructure.json : synchronisé depuis NetBox, ajouts manuels conservés."""
+
+    def setUp(self):
+        from vers_iaac import synchroniser
+        self.synchroniser = synchroniser
+        self.m = charger()
+        self.base = synchroniser(self.m, {})
+
+    def test_structure_lue_par_l_interface(self):
+        self.assertTrue({"reseaux_globaux", "ressources_physiques", "ressources_logiques", "clusters", "vrrp",
+                         "flux"} <= set(self.base))
+        self.assertEqual(self.base["ressources_logiques"]["api-rincage"]["hote_parent"], ["pi31", "pi32"])
+        self.assertEqual(self.base["ressources_physiques"]["pi31"]["interfaces"]["eth0"]["liaison_physique"],
+                         "commutateur/port3")
+
+    def test_stable(self):
+        self.assertEqual(self.synchroniser(self.m, self.base), self.base)
+
+    def test_ajouts_manuels_conserves_et_objets_supprimes_retires(self):
+        ancien = copy.deepcopy(self.base)
+        ancien["ressources_physiques"]["pi31"]["note"] = "baie B"
+        ancien["mes_ajouts"] = {"x": 1}
+        ancien["ressources_logiques"]["api-rincage"]["compose"]["perimee"] = True
+        ancien["ressources_physiques"]["fantome"] = {"nom": "fantome"}
+        n = self.synchroniser(self.m, ancien)
+        self.assertEqual(n["ressources_physiques"]["pi31"]["note"], "baie B")
+        self.assertEqual(n["mes_ajouts"], {"x": 1})
+        self.assertNotIn("perimee", n["ressources_logiques"]["api-rincage"]["compose"])
+        self.assertNotIn("fantome", n["ressources_physiques"])

@@ -349,6 +349,18 @@
                 }
             }
 
+            // Clusters (synchronisés depuis NetBox) : un nœud par cluster, relié à ses membres.
+            if (data.clusters) {
+                for (const [key, cl] of Object.entries(data.clusters)) {
+                    let n = { id: `cluster:${key}`, label: `🧩 cluster ${key}`, group: 'cluster', shape: 'database', title: cl.description || '' };
+                    nodes.push(n); originalNodesData[n.id] = n;
+                    (cl.membres || []).forEach(membre => {
+                        let e = { id: `e${edgeIdCounter++}`, from: membre, to: n.id, label: 'membre', dashes: true, color: {color:'#a78bfa', inherit: false}, relationType: 'cluster' };
+                        edges.push(e); originalEdgesData[e.id] = e;
+                    });
+                }
+            }
+
             nodesDataset.clear(); nodesDataset.add(nodes);
             edgesDataset.clear(); edgesDataset.add(edges);
 
@@ -363,6 +375,7 @@
                 groups: {
                     reseau: { color: { background: '#e0f2fe', border: '#0284c7' }, font: { color: '#0369a1' } },
                     physique: { color: { background: '#f8fafc', border: '#475569' }, font: { color: '#1e293b' }, borderWidth: 2 },
+                    cluster: { color: { background: '#ede9fe', border: '#7c3aed' }, font: { color: '#5b21b6' } },
                     logique: { color: { background: '#f0fdf4', border: '#16a34a' }, font: { color: '#15803d' } }
                 },
                 physics: { stabilization: true, barnesHut: { gravitationalConstant: -4000, springLength: 200 } },

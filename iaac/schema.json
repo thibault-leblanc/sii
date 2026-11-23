@@ -3,18 +3,34 @@
   "title": "Schéma Ontologie IaaC - Plateforme",
   "type": "object",
   "properties": {
-    "metadonnes": { "type": "object" },
+    "metadonnes": {
+      "type": "object",
+      "description": "Synchronisé depuis NetBox (netbox/outils/vers_iaac.py)"
+    },
     "reseaux_globaux": {
       "type": "object",
       "patternProperties": {
         "^[a-zA-Z0-9_-]+$": {
           "type": "object",
           "properties": {
-            "nom": { "type": "string" },
-            "id": { "type": "integer" },
-            "description": { "type": "string" },
-            "sous_reseau": { "type": "string" },
-            "passerelle": { "type": "string" }
+            "nom": {
+              "type": "string"
+            },
+            "id": {
+              "type": "integer"
+            },
+            "description": {
+              "type": "string"
+            },
+            "sous_reseau": {
+              "type": "string"
+            },
+            "passerelle": {
+              "type": "string"
+            },
+            "plage_macvlan": {
+              "type": "string"
+            }
           }
         }
       }
@@ -25,35 +41,107 @@
         "^[a-zA-Z0-9_-]+$": {
           "type": "object",
           "properties": {
-            "type": { "type": "string", "enum": ["pare-feu", "commutateur", "raspberry_pi_3b", "raspberry_pi_5", "serveur_x86"] },
-            "nom": { "type": "string" },
-            "fonction": { "type": "string" },
-            "ip_gestion": { "type": "string" },
-            "systeme_exploitation": { "type": "string" },
+            "type": {
+              "type": "string",
+              "enum": [
+                "pare-feu",
+                "commutateur",
+                "raspberry_pi_3b",
+                "raspberry_pi_5",
+                "serveur_x86",
+                "poste"
+              ]
+            },
+            "nom": {
+              "type": "string"
+            },
+            "fonction": {
+              "type": "string"
+            },
+            "ip_gestion": {
+              "type": "string"
+            },
+            "systeme_exploitation": {
+              "type": "string"
+            },
             "arborescence_hote": {
               "type": "object",
               "properties": {
-                "racine_projets": { "type": "string" },
-                "stockage_persistant": { "type": "string" }
+                "racine_projets": {
+                  "type": "string"
+                },
+                "stockage_persistant": {
+                  "type": "string"
+                }
               }
             },
-            "charges_logiques_nominales": { "type": "array" },
+            "charges_logiques_nominales": {
+              "type": "array"
+            },
             "interfaces": {
               "type": "object",
               "patternProperties": {
                 "^[a-zA-Z0-9_\\-\\.]+$": {
                   "type": "object",
                   "properties": {
-                    "type": { "type": "string", "enum": ["physique", "virtuelle", "cuivre", "optique", "macvlan"] },
-                    "mode": { "type": "string", "enum": ["access", "trunk", "routed"] },
-                    "vlan_id": { "type": "string" },
-                    "ip": { "type": "string" },
-                    "liaison_physique": { "type": "string" },
-                    "vlans_autorises": { "type": "array" },
-                    "description": { "type": "string" }
+                    "type": {
+                      "type": "string",
+                      "enum": [
+                        "physique",
+                        "virtuelle",
+                        "cuivre",
+                        "optique",
+                        "macvlan"
+                      ]
+                    },
+                    "mode": {
+                      "type": "string",
+                      "enum": [
+                        "access",
+                        "trunk",
+                        "routed"
+                      ]
+                    },
+                    "vlan_id": {
+                      "type": "string"
+                    },
+                    "ip": {
+                      "type": "string"
+                    },
+                    "liaison_physique": {
+                      "type": "string"
+                    },
+                    "vlans_autorises": {
+                      "type": "array"
+                    },
+                    "description": {
+                      "type": "string"
+                    },
+                    "parent": {
+                      "type": "string"
+                    }
                   }
                 }
               }
+            },
+            "role": {
+              "type": "string"
+            },
+            "marque": {
+              "type": "string"
+            },
+            "modele": {
+              "type": "string"
+            },
+            "clusters": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            },
+            "ports": {
+              "type": "object",
+              "description": "Ports exposés : proto, ports, clients autorisés"
             }
           }
         }
@@ -65,32 +153,139 @@
         "^[a-zA-Z0-9_-]+$": {
           "type": "object",
           "properties": {
-            "type": { "type": "string", "enum": ["conteneur_docker", "machine_virtuelle"] },
-            "nom": { "type": "string" },
-            "fonction": { "type": "string" },
+            "type": {
+              "type": "string",
+              "enum": [
+                "conteneur_docker",
+                "machine_virtuelle"
+              ]
+            },
+            "nom": {
+              "type": "string"
+            },
+            "fonction": {
+              "type": "string"
+            },
             "hote_parent": {
-                "type": ["string", "array"],
-                "items": { "type": "string" }
-              },
-            "chemin_deploiement": { "type": "string" },
-            "depot_source": { "type": "string" },
+              "type": [
+                "string",
+                "array"
+              ],
+              "items": {
+                "type": "string"
+              }
+            },
+            "chemin_deploiement": {
+              "type": "string"
+            },
+            "depot_source": {
+              "type": "string"
+            },
             "interfaces": {
               "type": "object",
               "patternProperties": {
                 "^[a-zA-Z0-9_\\-\\.]+$": {
                   "type": "object",
                   "properties": {
-                    "type": { "type": "string", "enum": ["macvlan", "ipvlan", "bridge", "host"] },
-                    "liaison_hote": { "type": "string" },
-                    "vlan_id": { "type": "string" },
-                    "ip_statique": { "type": "string" }
+                    "type": {
+                      "type": "string",
+                      "enum": [
+                        "macvlan",
+                        "ipvlan",
+                        "bridge",
+                        "host"
+                      ]
+                    },
+                    "liaison_hote": {
+                      "type": "string"
+                    },
+                    "vlan_id": {
+                      "type": "string"
+                    },
+                    "ip_statique": {
+                      "type": "string"
+                    }
                   }
                 }
+              }
+            },
+            "cluster": {
+              "type": "string"
+            },
+            "haute_disponibilite": {
+              "type": "boolean"
+            },
+            "passerelle": {
+              "type": "string",
+              "description": "Réseau portant la route par défaut (gw_priority)"
+            },
+            "ports": {
+              "type": "object",
+              "description": "Ports exposés : proto, ports, clients autorisés"
+            },
+            "fichiers": {
+              "type": "object",
+              "description": "Configurations du repo déployées à chaque publication (destination: source)"
+            },
+            "amorcage": {
+              "type": "object",
+              "description": "Fichiers déposés seulement s'ils sont absents (destination: source)"
+            },
+            "compose": {
+              "type": "object",
+              "description": "Service docker-compose (hors réseaux, générés depuis les interfaces)"
+            }
+          }
+        }
+      }
+    },
+    "clusters": {
+      "type": "object",
+      "patternProperties": {
+        "^[a-zA-Z0-9_-]+$": {
+          "type": "object",
+          "properties": {
+            "description": {
+              "type": "string"
+            },
+            "membres": {
+              "type": "array",
+              "items": {
+                "type": "string"
               }
             }
           }
         }
       }
+    },
+    "vrrp": {
+      "type": "object",
+      "patternProperties": {
+        "^[a-zA-Z0-9_-]+$": {
+          "type": "object",
+          "properties": {
+            "vrid": {
+              "type": "integer"
+            },
+            "vip": {
+              "type": "string"
+            },
+            "interface": {
+              "type": "string"
+            },
+            "membres": {
+              "type": "object"
+            },
+            "cluster": {
+              "type": "string"
+            }
+          }
+        }
+      }
+    },
+    "flux": {
+      "type": "array",
+      "description": "Matrice de flux autorisés, calculée depuis les ports et clients NetBox"
     }
   }
 }
