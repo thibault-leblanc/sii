@@ -8,5 +8,5 @@
 
 Les tests hors ligne sont lancés par `python netbox/outils/synchro.py` et par le garde-fou de commit.
 
-Anciens clients de test manuels (non automatisés, conservés) : `client_mb_async.py`, `client_mb_sync.py`
-(clients Modbus), `opcua-srv.py` (serveur OPC-UA d'essai).
+Les anciens clients de test manuels (Modbus, serveur OPC-UA d'essai) sont archivés hors du dépôt
+(`D:\Documents\Cyber\archives_plateforme\`).

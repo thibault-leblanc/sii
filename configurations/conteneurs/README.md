@@ -11,6 +11,8 @@ Un dossier par image : code, `Dockerfile` (versions figées), `.dockerignore`, c
 | [`scada/`](scada/README.md) | **En service** | SCADA FUXA |
 | [`donnees/`](donnees/readme.md) | **En service** | Serveur FTP et agent rsync par VLAN |
 | [`scada-dev/`](scada-dev/README.md) | Essais | FUXA de développement du poste d'administration |
-| [`api/old/`](api/old/README.md), [`sim/old_cuve_pression/`](sim/old_cuve_pression/README.md), [`opcua-srv/`](opcua-srv/README.md) | Archives | Premiers prototypes, non déployés |
+
+Les premiers prototypes (cuve chauffée, serveur OPC-UA de test) ont été retirés du dépôt le 2026-11-24 : archive
+locale `D:\Documents\Cyber\archives_plateforme\`, et historique git.
 
 Construction : `sh configurations/construire_images.sh [nom]` (arm64, `.tar` dans `configurations/images/`).

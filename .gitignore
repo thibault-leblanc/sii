@@ -1,6 +1,7 @@
 *.tar 
 *.tar.old 
-*/fuxa_appdata/*
+**/fuxa_appdata/*
+!**/fuxa_appdata/README.md
 
 # NetBox : fichiers générés, et relevés des nœuds (contiennent des secrets via docker inspect)
 netbox/genere/

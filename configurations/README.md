@@ -1,8 +1,8 @@
 # Configurations : code des conteneurs et préparation des nœuds
 
-Ce dossier contient **ce qui ne vient pas de NetBox** : le code et les Dockerfile des images, les configurations
-des applications, la préparation des nœuds. Les fichiers de **déploiement** (docker-compose, netplan, réseaux
-macvlan, `config_cluster.json`) ne sont plus ici : ils sont générés depuis NetBox (`netbox/genere/`).
+Ce dossier contient le code et les Dockerfile des images, les configurations des applications, et les **nœuds** :
+`machines/<nœud>/` contient, **généré depuis NetBox et versionné**, tout ce qui est déployé sur chaque nœud
+(docker-compose, netplan, réseaux macvlan, `config_cluster.json`, configurations), avec sa fiche.
 
 ## Briques de la plateforme
 
@@ -13,7 +13,7 @@ macvlan, `config_cluster.json`) ne sont plus ici : ils sont générés depuis Ne
 | [`conteneurs/cluster/`](conteneurs/cluster/README.md) | `agent-ha` | Agent de haute disponibilité (keepalived, VRRP) | pi31, pi32 |
 | [`conteneurs/scada/`](conteneurs/scada/README.md) | `scada-fuxa:1.3.3` | SCADA FUXA, IHM de conduite | pi51 (cluster conduite) |
 | [`conteneurs/donnees/`](conteneurs/donnees/readme.md) | `serveur-ftp`, `agent-sync` | Ingestion FTP et réplication rsync des données par VLAN | pi51 |
-| [`machines/`](machines/README.md) | — | Préparation d'un nœud (Docker, mises à jour) | tous |
+| [`machines/`](machines/README.md) | — | Un dossier généré par nœud (ce qui y est déployé, fiche) ; préparation de l'hôte (Docker, mises à jour) | pi31, pi32, pi51 |
 
 ## Construire les images
 
@@ -29,9 +29,10 @@ Les versions des images de base et des dépendances sont figées (audit R2, R4).
 `.dockerignore` : les anciennes images `.tar` ne doivent jamais entrer dans une image.
 Déploiement d'une image : voir `netbox/README.md` (dépôt dans `~/images` des nœuds, chargement par l'agent HA).
 
-## Hors plateforme (archives et essais)
+## Essais et archives
 
-Conservés pour l'historique, **non déployés**, à trier :
-`conteneurs/api/old/`, `conteneurs/sim/old_cuve_pression/`, `conteneurs/opcua-srv/` (serveur OPC-UA de test),
-`raps1/`, `machines/pi3x/opcua-srv.sh`, et `conteneurs/scada-dev/` (instance FUXA de développement du poste
-d'administration, gardée pour des essais : elle n'est pas la référence, voir `conteneurs/scada/`).
+- `conteneurs/scada-dev/` : instance FUXA de développement du poste d'administration, gardée pour des essais (ce
+  n'est pas la référence, voir `conteneurs/scada/`).
+- Les anciens prototypes et scripts (cuve chauffée, serveur OPC-UA de test, `raps1`, script d'installation
+  « tout-en-un ») et les anciennes images `.tar` ont été retirés le 2026-11-24 : archive locale
+  `D:\Documents\Cyber\archives_plateforme\` (avec son index), et historique git.

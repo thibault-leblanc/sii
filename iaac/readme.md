@@ -42,4 +42,5 @@ cd iaac && python serveur.py      # http://127.0.0.1:5000
 - **Script d'initialisation** d'un nœud : produit par le générateur NetBox (même netplan que `netbox/genere/`).
 
 Fichiers : `serveur.py` (serveur local sans dépendance hormis l'outillage `netbox/outils`), `schema.json`,
-`templates/index.html`, `templates/provisioning/ubuntu_init.template.sh`. `sav/` : anciennes versions (archives).
+`templates/index.html`, `templates/provisioning/ubuntu_init.template.sh`. Les anciennes versions (`sav/`) sont
+archivées hors du dépôt (`D:\Documents\Cyber\archives_plateforme\`).
