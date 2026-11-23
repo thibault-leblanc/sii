@@ -8,7 +8,7 @@ import ipaddress
 import os
 import sys
 
-from modele import (INTERFACE_PHYSIQUE, ROLE_CONTENEUR, SOURCE_DEFAUT, charger, console_utf8, ports_explicites,
+from modele import (INTERFACE_PHYSIQUE, ROLE_CONTENEUR, SOURCE_DEFAUT, charger, clusters_de, console_utf8, ports_explicites,
                     slugifier, valider, vid_de_reseau)
 
 VERSION_MINI = (4, 3)
@@ -66,6 +66,10 @@ class Importeur:
         self.assurer(nb.extras.custom_fields, {"name": "clients"}, {
             "name": "clients", "label": "Clients autorisés", "type": "json", "object_types": ["ipam.service"],
             "description": "Équipements ou services autorisés à joindre ce service (matrice de flux)"})
+        self.assurer(nb.extras.custom_fields, {"name": "clusters"}, {
+            "name": "clusters", "label": "Clusters", "type": "multiobject", "object_types": ["dcim.device"],
+            "related_object_type": "virtualization.cluster",
+            "description": "Tous les clusters du nœud (le champ natif n'en porte qu'un, le principal)"})
         site = self.assurer(nb.dcim.sites, {"slug": m["site"]["slug"]},
                             {"name": m["site"]["nom"], "slug": m["site"]["slug"], "status": "active"})
         self.assurer(nb.extras.config_contexts, {"name": "sii-reseau"},
@@ -113,7 +117,9 @@ class Importeur:
             dev = self.assurer(nb.dcim.devices, {"name": nom, "site_id": site.id}, {
                 "name": nom, "device_type": types[eq["type"]], "role": roles[eq["role"]], "site": site.id,
                 "status": "active", "platform": plateformes.get(eq.get("plateforme")),
-                "cluster": clusters.get(eq.get("cluster")), "description": eq.get("description", ""),
+                "cluster": clusters.get(next(iter(clusters_de(eq)), None)),
+                "custom_fields": {"clusters": [clusters[c] for c in clusters_de(eq)]},
+                "description": eq.get("description", ""),
                 "local_context_data": eq.get("contexte")})
             self.dev[nom] = dev
             itfs = eq.get("interfaces") or {}
@@ -161,7 +167,8 @@ class Importeur:
             vm = self.assurer(nb.virtualization.virtual_machines, {"name": snom, "cluster_id": clusters[s["cluster"]]}, {
                 "name": snom, "cluster": clusters[s["cluster"]], "role": roles[ROLE_CONTENEUR], "status": "active",
                 "description": s.get("description", ""), "tags": [self.tag["ha"]] if s.get("ha") else [],
-                "local_context_data": {k: s[k] for k in ("source", "chemin", "compose") if k in s}})
+                "local_context_data": {k: s[k] for k in ("source", "chemin", "passerelle", "fichiers", "amorcage", "compose")
+                                       if k in s}})
             self.vm[snom] = vm
             for reseau, adresse in (s.get("ip") or {}).items():
                 vi = self.assurer(nb.virtualization.interfaces, {"virtual_machine_id": vm.id, "name": reseau},

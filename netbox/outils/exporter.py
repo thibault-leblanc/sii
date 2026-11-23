@@ -71,8 +71,12 @@ def exporter(nb, slug_site="sii-lab"):
         eq = {"type": d["device_type"]["slug"], "role": d["role"]["slug"]}
         if d.get("platform"):
             eq["plateforme"] = d["platform"]["slug"]
-        if d.get("cluster"):
-            eq["cluster"] = d["cluster"]["name"]
+        # Appartenance à plusieurs clusters : champ personnalisé « clusters » (le champ natif n'en porte qu'un).
+        clusters = [c["name"] for c in (d.get("custom_fields") or {}).get("clusters") or []]
+        if not clusters and d.get("cluster"):
+            clusters = [d["cluster"]["name"]]
+        if clusters:
+            eq["clusters"] = clusters
         if d.get("description"):
             eq["description"] = d["description"]
         if d.get("local_context_data"):
@@ -124,7 +128,7 @@ def exporter(nb, slug_site="sii-lab"):
         if v.get("description"):
             s["description"] = v["description"]
         ctx = v.get("local_context_data") or {}
-        for cle in ("source", "chemin"):
+        for cle in ("source", "chemin", "passerelle", "fichiers", "amorcage"):
             if cle in ctx:
                 s[cle] = ctx[cle]
         ip_vm = {}

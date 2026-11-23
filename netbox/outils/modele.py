@@ -112,8 +112,22 @@ def passerelle(m, reseau):
     return None
 
 
+def clusters_de(eq):
+    """Clusters d'un équipement. Un nœud peut appartenir à plusieurs clusters (ex. pi51 : infra et conduite)."""
+    return list(eq.get("clusters") or ([eq["cluster"]] if eq.get("cluster") else []))
+
+
 def membres(m, cluster):
-    return sorted(n for n, e in m.get("equipements", {}).items() if e.get("cluster") == cluster)
+    return sorted(n for n, e in m.get("equipements", {}).items() if cluster in clusters_de(e))
+
+
+def cluster_du_vrrp(m, g):
+    """Cluster servi par un groupe VRRP : celui commun à tous ses membres (None si aucun ou plusieurs)."""
+    communs = None
+    for d in g.get("membres") or {}:
+        c = set(clusters_de(m.get("equipements", {}).get(d, {})))
+        communs = c if communs is None else communs & c
+    return next(iter(communs)) if communs and len(communs) == 1 else None
 
 
 def est_ubuntu(eq):
@@ -190,9 +204,12 @@ def valider(m, racine_repo=RACINE_REPO):
 
     for nom, eq in equipements.items():
         ou = f"équipement {nom}"
-        for cle, table in (("type", "types"), ("role", "roles"), ("plateforme", "plateformes"), ("cluster", "clusters")):
+        for cle, table in (("type", "types"), ("role", "roles"), ("plateforme", "plateformes")):
             if eq.get(cle) is not None and eq[cle] not in (m.get(table) or {}):
                 err.append(f"{ou} : {cle} '{eq[cle]}' inconnu dans '{table}'")
+        for c in clusters_de(eq):
+            if c not in (m.get("clusters") or {}):
+                err.append(f"{ou} : cluster '{c}' inconnu dans 'clusters'")
         itfs = eq.get("interfaces") or {}
         principales = [i for i, itf in itfs.items() if itf.get("principale")]
         if len(principales) > 1:
@@ -220,7 +237,7 @@ def valider(m, racine_repo=RACINE_REPO):
                     err.append(f"{oui} : déclarer le câble côté équipement, pas côté commutateur")
                 elif equipements[pair].get("role") != "commutateur" and pair < nom:
                     err.append(f"{oui} : câble entre deux équipements à déclarer côté '{pair}' (ordre alphabétique)")
-        if eq.get("cluster") and not est_ubuntu(eq):
+        if clusters_de(eq) and not est_ubuntu(eq):
             avert.append(f"{ou} : membre d'un cluster sans plateforme Ubuntu (pas de netplan généré)")
 
     cables = {}
@@ -241,9 +258,8 @@ def valider(m, racine_repo=RACINE_REPO):
                 err.append(f"{ou} : interface {dnom}/{g.get('interface')} inconnue")
             elif vip and itf.get("ip") and ipaddress.ip_interface(itf["ip"]).network != vip.network:
                 err.append(f"{ou} : VIP hors du réseau de {dnom}/{g['interface']}")
-        clusters = {equipements.get(d, {}).get("cluster") for d in g.get("membres") or {}}
-        if len(clusters) != 1:
-            err.append(f"{ou} : les membres doivent appartenir au même cluster ({clusters})")
+        if g.get("membres") and cluster_du_vrrp(m, g) is None:
+            err.append(f"{ou} : les membres doivent avoir exactement un cluster en commun")
 
     for snom, s in services.items():
         ou = f"service {snom}"
@@ -264,6 +280,14 @@ def valider(m, racine_repo=RACINE_REPO):
                          "du nœud, même passif (doublon d'IP, audit n°3). Mettre restart: \"no\"")
         if s.get("source") and not (Path(racine_repo) / s["source"]).is_dir():
             avert.append(f"{ou} : dossier source '{s['source']}' introuvable dans le repo")
+        for cle in ("fichiers", "amorcage"):
+            for dest, source in (s.get(cle) or {}).items():
+                if not (Path(racine_repo) / source).is_file():
+                    err.append(f"{ou} : {cle} '{dest}' : fichier '{source}' introuvable dans le repo")
+                if dest.startswith("/") or ".." in Path(dest).parts:
+                    err.append(f"{ou} : {cle} '{dest}' doit être relatif au dossier du service")
+        if s.get("passerelle") and s["passerelle"] not in (s.get("ip") or {}):
+            err.append(f"{ou} : passerelle '{s['passerelle']}' n'est pas un réseau du service")
         for reseau, adresse in (s.get("ip") or {}).items():
             vid = vid_de_reseau(reseau)
             if vid not in vlans:

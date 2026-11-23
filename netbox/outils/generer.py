@@ -19,8 +19,9 @@ import shutil
 import sys
 from pathlib import Path
 
-from modele import (charger, console_utf8, ecrire_yaml, ip_principale, ips_de, membres, passerelle,
-                    ports_compacts, ports_explicites, reseaux_macvlan, est_ubuntu, valider, vid_de_reseau)
+from modele import (RACINE_REPO, charger, clusters_de, cluster_du_vrrp, console_utf8, ecrire_yaml, ip_principale,
+                    ips_de, membres, passerelle, ports_compacts, ports_explicites, reseaux_macvlan, est_ubuntu,
+                    valider, vid_de_reseau)
 
 ENTETE = "# Généré par netbox/outils/generer.py depuis NetBox. Ne pas modifier à la main.\n"
 
@@ -67,6 +68,10 @@ def compose(m, snom):
     ips = s.get("ip") or {}
     if ips:
         corps["networks"] = {r: {"ipv4_address": str(ipaddress.ip_interface(a).ip)} for r, a in ips.items()}
+        if s.get("passerelle"):
+            # Conteneur à plusieurs réseaux : Docker ne pose qu'une route par défaut. Sans choix explicite, l'automate
+            # répondait par le VLAN20 à une demande arrivée par le VLAN30 (routage asymétrique, rejet au pare-feu).
+            corps["networks"][s["passerelle"]]["gw_priority"] = 1
     # Nom de projet explicite : sinon Compose prend le nom du dossier, et api/rincage et simulation/rincage
     # partagent le projet « rincage » (chacun voit l'autre comme orphelin, --remove-orphans le supprimerait).
     doc = {"name": snom, "services": {cle: corps}}
@@ -79,7 +84,7 @@ def config_cluster(m, gnom):
     """Format attendu par l'agent HA actuel (configurations/conteneurs/cluster/Dockerfile)."""
     g = m["vrrp"][gnom]
     premier = next(iter(g["membres"]))
-    cluster = m["equipements"][premier]["cluster"]
+    cluster = cluster_du_vrrp(m, g)
     # Sous-interface hôte de chaque VLAN (identique sur les membres) : l'agent y vérifie par ARP qu'une IP de
     # service ne répond plus ailleurs avant de démarrer le service (audit H6).
     sous_itf = {itf["vlan"]: n for n, itf in (m["equipements"][premier].get("interfaces") or {}).items()
@@ -183,8 +188,8 @@ def topologie(m):
         noeuds.append({"id": nom, "label": f"{nom}\n{ip.ip if ip else ''}".strip(), "shape": "box", "borderWidth": 2,
                        "color": {"background": "#ffffff", "border": "#" + m["roles"][eq["role"]].get("couleur", "9e9e9e")},
                        "title": eq.get("description", "")})
-        if eq.get("cluster"):
-            lien("cluster", nom, f"cluster:{eq['cluster']}", dashes=True, color="#a78bfa")
+        for c in clusters_de(eq):
+            lien("cluster", nom, f"cluster:{c}", dashes=True, color="#a78bfa")
         for inom, itf in (eq.get("interfaces") or {}).items():
             if itf.get("cable"):
                 pair, _, pitf = itf["cable"].partition("/")
@@ -211,7 +216,7 @@ def topologie(m):
     return PAGE_TOPOLOGIE.replace("__DONNEES__", donnees)
 
 
-def publier(m, noeuds):
+def publier(m, noeuds, amorcages=()):
     lignes = ["#!/bin/sh", ENTETE.strip(),
               "# Copie genere/<noeud>/ dans le dossier personnel de chaque nœud, par SSH (compte = nom du nœud).",
               "# Sans option : affiche seulement ce qui serait copié.  Pour copier : sh publier.sh --appliquer",
@@ -225,7 +230,18 @@ def publier(m, noeuds):
                    f"  tar -C {n} -cf - . | ssh {n}@{ip} 'tar -C ~ --no-overwrite-dir --backup=numbered -xvf -'",
                    "else",
                    f"  tar -C {n} -cf - . | tar -tvf -",
-                   "fi", ""]
+                   "fi"]
+        if n in amorcages:
+            # Amorçage : déposé seulement là où rien n'existe encore (jamais d'écrasement de l'état d'exécution).
+            lignes += [f'echo "== {n} : amorçage (fichiers absents seulement)"',
+                       'if [ "$1" = "--appliquer" ]; then',
+                       # --skip-old-files laisse intact tout ce qui existe (fichiers et dossiers, dont ~) ;
+                       # GNU tar refuse de le combiner avec --no-overwrite-dir.
+                       f"  tar -C {n}.amorcage -cf - . | ssh {n}@{ip} 'tar -C ~ --skip-old-files -xvf -'",
+                       "else",
+                       f"  tar -C {n}.amorcage -cf - . | tar -tvf -",
+                       "fi"]
+        lignes.append("")
     return "\n".join(lignes)
 
 
@@ -254,21 +270,31 @@ def generer(m, sortie=None):
         fichiers[f"{n}/99-{n}-netplan.yaml"] = netplan(m, n)
         if reseaux_macvlan(m, n):
             fichiers[f"{n}/creation_vlan.sh"] = creation_vlan(m, n)
+    amorcages = set()
     for snom, s in m.get("services", {}).items():
         for n in membres(m, s["cluster"]):
             fichiers[f"{n}/{s['chemin']}/docker-compose.yml"] = compose(m, snom)
+            # Configurations versionnées dans le repo, déployées à côté du compose (référencées dans NetBox).
+            for dest, source in (s.get("fichiers") or {}).items():
+                fichiers[f"{n}/{s['chemin']}/{dest}"] = (RACINE_REPO / source).read_bytes()
+            for dest, source in (s.get("amorcage") or {}).items():
+                fichiers[f"{n}.amorcage/{s['chemin']}/{dest}"] = (RACINE_REPO / source).read_bytes()
+                amorcages.add(n)
     for gnom, g in (m.get("vrrp") or {}).items():
         for n in g["membres"]:
             fichiers[f"{n}/config_cluster.json"] = config_cluster(m, gnom)
     fichiers["matrice_flux.md"] = matrice_flux(m)
     fichiers["topologie.html"] = topologie(m)
-    fichiers["publier.sh"] = publier(m, noeuds)
+    fichiers["publier.sh"] = publier(m, noeuds, amorcages)
     if sortie:
         vider_sortie(Path(sortie))
         for chemin, contenu in fichiers.items():
             cible = Path(sortie) / chemin
             cible.parent.mkdir(parents=True, exist_ok=True)
-            cible.write_text(contenu, encoding="utf-8", newline="\n")
+            if isinstance(contenu, bytes):
+                cible.write_bytes(contenu)
+            else:
+                cible.write_text(contenu, encoding="utf-8", newline="\n")
     return fichiers
 
 

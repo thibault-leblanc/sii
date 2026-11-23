@@ -12,7 +12,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "outils"))
 from derive import ECART, deriver  # noqa: E402
 from generer import flux, generer  # noqa: E402
 from modele import (charger, differences, normaliser, ports_compacts,  # noqa: E402
-                    ports_explicites, reseaux_macvlan, valider)
+                    ports_explicites, reseaux_macvlan, valider, clusters_de)
 
 
 
@@ -183,7 +183,7 @@ def collecte_conforme(m, noeud):
                         "IPAM": {"Config": [{"Subnet": r["subnet"], "Gateway": r["gateway"], "IPRange": r["ip_range"]}]}})
     inspect = []
     for s in m["services"].values():
-        if eq.get("cluster") != s["cluster"]:
+        if s["cluster"] not in clusters_de(eq):
             continue
         inspect.append({
             "Name": "/" + s["compose"]["container_name"],
