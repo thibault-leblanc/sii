@@ -1,0 +1,4 @@
+// Plateforme SII : pas de mise à jour automatique sur les noeuds OT (redémarrage de Docker = arrêt du procédé).
+// Mises à jour décidées et faites noeud par noeud : voir netbox/README.md.
+APT::Periodic::Update-Package-Lists "0";
+APT::Periodic::Unattended-Upgrade "0";

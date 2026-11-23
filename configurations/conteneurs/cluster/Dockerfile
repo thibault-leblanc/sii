@@ -4,7 +4,8 @@ FROM alpine:3.24.4
 
 # Le paquet keepalived ne crée pas /etc/keepalived : sans lui, l'entrypoint ne pouvait pas écrire
 # la configuration et l'agent s'arrêtait aussitôt (constaté le 2026-11-22, déjà vrai sur l'image d'août).
-RUN apk add --no-cache keepalived docker-cli python3 bash && \
+# iputils-arping : vérifier qu'une IP de service est libre avant de démarrer le service (audit H6).
+RUN apk add --no-cache keepalived docker-cli python3 bash iputils-arping && \
     mkdir -p /etc/keepalived
 
 # Scripts en fichiers (audit, constat n°8) : lisibles, testables. Les fins de ligne Windows sont retirées,

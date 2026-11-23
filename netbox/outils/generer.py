@@ -20,7 +20,7 @@ import sys
 from pathlib import Path
 
 from modele import (charger, console_utf8, ecrire_yaml, ip_principale, ips_de, membres, passerelle,
-                    ports_compacts, ports_explicites, reseaux_macvlan, est_ubuntu, valider)
+                    ports_compacts, ports_explicites, reseaux_macvlan, est_ubuntu, valider, vid_de_reseau)
 
 ENTETE = "# Généré par netbox/outils/generer.py depuis NetBox. Ne pas modifier à la main.\n"
 
@@ -78,10 +78,17 @@ def compose(m, snom):
 def config_cluster(m, gnom):
     """Format attendu par l'agent HA actuel (configurations/conteneurs/cluster/Dockerfile)."""
     g = m["vrrp"][gnom]
-    cluster = m["equipements"][next(iter(g["membres"]))]["cluster"]
+    premier = next(iter(g["membres"]))
+    cluster = m["equipements"][premier]["cluster"]
+    # Sous-interface hôte de chaque VLAN (identique sur les membres) : l'agent y vérifie par ARP qu'une IP de
+    # service ne répond plus ailleurs avant de démarrer le service (audit H6).
+    sous_itf = {itf["vlan"]: n for n, itf in (m["equipements"][premier].get("interfaces") or {}).items()
+                if itf.get("parent") and itf.get("vlan")}
     surveilles = {
         n: {"nom_conteneur": s["compose"]["container_name"], "chemin_compose": s["chemin"],
-            **{f"priorite_{d}": p for d, p in g["membres"].items()}}
+            **{f"priorite_{d}": p for d, p in g["membres"].items()},
+            "adresses": [{"ip": str(ipaddress.ip_interface(a).ip), "interface": sous_itf[vid_de_reseau(r)]}
+                         for r, a in sorted((s.get("ip") or {}).items())]}
         for n, s in sorted(m["services"].items()) if s.get("ha") and s["cluster"] == cluster
     }
     conf = {"vip_admin": str(ipaddress.ip_interface(g["vip"]).ip), "vrid": g["vrid"],

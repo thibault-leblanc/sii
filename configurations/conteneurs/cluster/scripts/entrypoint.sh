@@ -12,6 +12,8 @@ IFACE=$(lire 'c["interface_heartbeat"]')
 PRIORITE=$(lire 'next(iter(c["services_surveilles"].values())).get("priorite_" + os.uname().nodename, 90)')
 # Conteneurs pilotés par l'agent, lus une seule fois : la sonde reste légère.
 lire '"\n".join(s["nom_conteneur"] for s in c["services_surveilles"].values())' > /etc/keepalived/services
+# IP de chaque service et sous-interface où la vérifier par ARP avant de démarrer (voir action.sh).
+lire '"\n".join(a["ip"] + " " + a["interface"] for s in c["services_surveilles"].values() for a in s.get("adresses", []))' > /etc/keepalived/adresses
 echo "$VIP" > /etc/keepalived/vip
 echo "$IFACE" > /etc/keepalived/iface
 
@@ -22,11 +24,13 @@ global_defs {
 }
 vrrp_script check_docker {
     script "/usr/local/bin/check_health.sh"
-    interval 5     # un Pi 3B met 1 à 3 s pour interroger Docker
-    timeout 4
-    fall 2         # deux échecs de suite avant de perdre 20 de priorité : pas de bascule sur un échantillon lent
-    rise 1
-    weight -20
+    interval 10    # un Pi 3B chargé met jusqu'à plusieurs secondes pour interroger Docker
+    timeout 8
+    fall 3         # trois échecs de suite (~30 s) : pas de bascule sur un échantillon lent
+    rise 2
+    # Pas de « weight » : une sonde en échec met le nœud en FAULT (il lâche la VIP).
+    # Avec un poids, la priorité baissait (100 -> 80) mais nopreempt interdisait au passif (90)
+    # de prendre la main : une panne de service n'aurait jamais provoqué de bascule (2026-11-23).
 }
 vrrp_instance COEUR_SII {
     state BACKUP

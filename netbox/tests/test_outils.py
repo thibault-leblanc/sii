@@ -114,8 +114,12 @@ class TestGeneration(unittest.TestCase):
     def test_config_cluster(self):
         attendu = {"vip_admin": "192.168.10.251", "vrid": 51, "interface_heartbeat": "eth0.10",
                    "services_surveilles": {
-                       n: {"nom_conteneur": n, "chemin_compose": c, "priorite_pi31": 100, "priorite_pi32": 90}
-                       for n, c in (("api-rincage", "api/rincage"), ("sim-rincage", "simulation/rincage"))}}
+                       n: {"nom_conteneur": n, "chemin_compose": c, "priorite_pi31": 100, "priorite_pi32": 90,
+                           "adresses": a}  # vérifiées par ARP avant démarrage (H6)
+                       for n, c, a in (
+                           ("api-rincage", "api/rincage", [{"ip": "192.168.20.20", "interface": "eth0.20"},
+                                                           {"ip": "192.168.30.20", "interface": "eth0.30"}]),
+                           ("sim-rincage", "simulation/rincage", [{"ip": "192.168.20.10", "interface": "eth0.20"}]))}}
         for n in ("pi31", "pi32"):
             self.assertEqual(json.loads(self.f[f"{n}/config_cluster.json"]), attendu)
 
