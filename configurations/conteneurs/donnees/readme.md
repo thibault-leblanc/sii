@@ -11,7 +11,7 @@ Chaque VLAN a son couple FTP + agent : un agent ne voit que les données de son 
 ## Déploiement
 
 Le déploiement **ne se fait plus à la main** : adresses IP, réseaux macvlan, dossiers et variables sont décrits
-dans NetBox, et les `docker-compose.yml` sont générés (`netbox/outils/generer.py`, puis `genere/pi51/`).
+dans NetBox, et les `docker-compose.yml` sont générés dans `configurations/machines/pi51/` (`netbox/outils/generer.py`).
 Voir `netbox/README.md`. Les images se construisent avec `sh configurations/construire_images.sh`.
 
 | Service | Dossier sur pi51 | Données |

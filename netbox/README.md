@@ -22,7 +22,7 @@ donnees/sii.yaml ──────────▶ NetBox ───────�
 | `outils/exporter.py` | Relit NetBox au format `sii.yaml`. `--comparer` vérifie l'aller-retour. |
 | `outils/importer.py` | Charge un modèle dans un NetBox **vide** (reconstruction). Ne plus l'utiliser sur l'instance en service. |
 | `outils/vers_iaac.py` | Synchronise `iaac/infrastructure.json` (ajouts manuels conservés). |
-| `outils/generer.py` | Produit `genere/<noeud>/…` (netplan, macvlan, compose, `config_cluster.json`, configurations), `genere/<noeud>.amorcage/`, `matrice_flux.md`, `topologie.html`, `publier.sh`. |
+| `outils/generer.py` | Produit **`configurations/machines/<noeud>/`** (versionné : netplan, macvlan, compose, `config_cluster.json`, configurations, fiche du nœud) et, hors git dans `genere/` : `<noeud>.amorcage/`, `matrice_flux.md`, `topologie.html`, `publier.sh`. |
 | `outils/collecte.sh`, `outils/derive.py` | Relève l'état réel des nœuds et le compare au modèle (dérive). |
 | `migrations/` | Modifications de NetBox **datées, scriptées et relançables** (traçabilité des changements de modèle). |
 | `deploiement/docker-compose.override.yml` | Réglages locaux pour `netbox-docker`. |
@@ -116,7 +116,7 @@ python outils/generer.py -o genere/
 
 - Relire `genere/matrice_flux.md` : chaque ligne « Pare-feu : oui » demande une règle sur le pare-feu.
 - Comparer avec ce qui est déployé, par exemple :
-  `ssh pi31@192.168.10.10 cat ~/api/rincage/docker-compose.yml | diff - genere/pi31/api/rincage/docker-compose.yml`
+  `ssh pi31@192.168.10.10 cat ~/api/rincage/docker-compose.yml | diff - ../configurations/machines/pi31/api/rincage/docker-compose.yml`
 
 ### 6. Publier sur les nœuds
 
@@ -262,7 +262,7 @@ Depuis Git Bash, à la racine du repo (exemple : pi31) :
 2. Docker et mises à jour : `scp -r configurations/machines/installation_docker.sh configurations/machines/apt pi31@192.168.10.10:`,
    puis `bash installation_docker.sh` et la désactivation des mises à jour automatiques (`configurations/machines/README.md`).
 3. Fichiers générés, configurations des applications comprises (`fichiers` du modèle) :
-   `tar -C netbox/genere/pi31 -cf - . | ssh pi31@192.168.10.10 'tar -C ~ --no-overwrite-dir -xf -'`
+   `tar -C configurations/machines/pi31 --exclude=README.md --exclude=.genere-par-netbox -cf - . | ssh pi31@192.168.10.10 'tar -C ~ --no-overwrite-dir -xf -'`
    (ou `sh netbox/genere/publier.sh --appliquer` pour tous les nœuds).
 4. Images : `scp configurations/images/{api-rincage,sim-rincage,agent-ha}.tar pi31@192.168.10.10:images/`.
 5. Sur le nœud : `sudo install -m 600 ~/99-pi31-netplan.yaml /etc/netplan/ && sudo netplan try`,
@@ -276,7 +276,7 @@ Depuis Git Bash, à la racine du repo (exemple : pi31) :
 ### SCADA (cluster conduite, pi51)
 
 Déployé comme les autres services (`~/scada`, IP 192.168.30.10). Ses données FUXA sont **amorcées** : publiées
-seulement si elles n'existent pas (`publier.sh` dépose `genere/pi51.amorcage/` avec `--skip-old-files`). Mise à
+seulement si elles n'existent pas (`publier.sh` dépose `netbox/genere/pi51.amorcage/` avec `--skip-old-files`). Mise à
 jour de l'image : `docker load`, puis `cd ~/scada && docker compose up -d`. Vérification :
 `python tests/plateforme/verifier_chaine_scada.py`. Détails : `configurations/conteneurs/scada/README.md`.
 

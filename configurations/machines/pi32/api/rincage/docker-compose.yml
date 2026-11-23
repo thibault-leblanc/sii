@@ -1,0 +1,20 @@
+# Généré par netbox/outils/generer.py depuis NetBox. Ne pas modifier à la main.
+name: api-rincage
+services:
+  api_rincage:
+    image: api-rincage-image:latest
+    container_name: api-rincage
+    restart: 'no'
+    volumes:
+    - ./config_api.json:/app/config_api.json
+    networks:
+      vlan20:
+        ipv4_address: 192.168.20.20
+      vlan30:
+        ipv4_address: 192.168.30.20
+        gw_priority: 1
+networks:
+  vlan20:
+    external: true
+  vlan30:
+    external: true

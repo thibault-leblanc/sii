@@ -1,0 +1,18 @@
+# Généré par netbox/outils/generer.py depuis NetBox. Ne pas modifier à la main.
+name: sync-vlan-20
+services:
+  sync-vlan-20:
+    image: agent-sync:latest
+    container_name: sync-vlan-20
+    restart: unless-stopped
+    environment:
+    - VLAN_CIBLE=vlan20
+    volumes:
+    - /home/pi51/donnees/vlan20/donnees:/donnees:ro
+    - /home/pi51/.ssh/id_rsa:/root/.ssh/id_rsa:ro
+    networks:
+      vlan20:
+        ipv4_address: 192.168.20.31
+networks:
+  vlan20:
+    external: true

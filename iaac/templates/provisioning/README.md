@@ -4,7 +4,7 @@
 pour le nœud choisi :
 - `{{NODE_ID}}` : nom d'hôte ;
 - `{{NETPLAN_YAML}}` : netplan **produit par le générateur NetBox** (`netbox/outils/generer.py`), identique à
-  `netbox/genere/<nœud>/99-<nœud>-netplan.yaml` ;
+  `configurations/machines/<nœud>/99-<nœud>-netplan.yaml` ;
 - `{{MKDIR_CMDS}}` : création des dossiers du nœud (contexte NetBox : racine des projets, données).
 
 Le script s'exécute en root sur le nœud. Il fait `netplan apply` : un netplan faux coupe l'accès au nœud ;

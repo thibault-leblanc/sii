@@ -1,15 +1,29 @@
-# Préparation des nœuds
+# Nœuds de la plateforme (`configurations/machines/`)
 
-Ce qui s'applique **à l'hôte** (Ubuntu Server 26.04, arm64) et ne vient pas de NetBox. Le réseau de l'hôte
-(netplan) et les réseaux Docker (macvlan) sont générés depuis NetBox (`netbox/genere/<nœud>/`).
-
-| Fichier | Rôle | Application |
+| Chemin | Nature | Contenu |
 |---|---|---|
-| `installation_docker.sh` | Installe Docker Engine et Compose (dépôt officiel), ajoute l'utilisateur au groupe `docker`. | `bash installation_docker.sh`, puis nouvelle session |
-| `apt/20auto-upgrades` | **Désactive les mises à jour automatiques** : elles redémarraient Docker, donc le procédé (2026-11-23). | `sudo install -m 644 apt/20auto-upgrades /etc/apt/apt.conf.d/` puis `sudo systemctl disable --now apt-daily.timer apt-daily-upgrade.timer unattended-upgrades` |
+| [`pi31/`](pi31/README.md), [`pi32/`](pi32/README.md), [`pi51/`](pi51/README.md) | **Généré** depuis NetBox | Tout ce qui est déployé sur le nœud (netplan, réseaux macvlan, docker-compose, `config_cluster.json`, configurations des applications) et sa **fiche** (`README.md` : rôle, réseau, services, destination de chaque fichier, actions manuelles). |
+| `installation_docker.sh` | Écrit à la main | Installe Docker Engine et Compose, ajoute l'utilisateur au groupe `docker`. |
+| [`apt/`](apt/README.md) | Écrit à la main | Désactivation des mises à jour automatiques (elles redémarraient Docker, donc le procédé). |
 
-Conventions : compte et nom d'hôte = nom du nœud (`pi31`…), données dans `~/donnees/vlanXX/donnees`, images dans
-`~/images`. Procédure complète de (ré)installation : `netbox/README.md`, « (Ré)installer un nœud ».
+## Dossiers des nœuds
 
-Mettre à jour un nœud (paquets) : décision explicite, **nœud passif d'abord** ; sur le maître, basculer avant
+Ils sont **versionnés** : `git log -p configurations/machines/pi51/` montre l'historique exact de ce qui a été
+déployé, et `git diff` l'effet de chaque changement fait dans NetBox. Ils ne s'éditent **jamais** à la main :
+
+1. modifier NetBox, puis `python netbox/outils/synchro.py` (régénère les dossiers) ;
+2. relire `git diff configurations/machines/` ;
+3. publier : `sh netbox/genere/publier.sh` (aperçu), puis `--appliquer` ;
+4. contrôler : `collecte.sh` puis `derive.py` (0 écart) ; commiter.
+
+Un dossier porte la marque `.genere-par-netbox` : le générateur le vide et le réécrit entièrement (un fichier
+retiré de NetBox disparaît). Le garde-fou de commit refuse un dossier qui ne correspond plus à NetBox. Les données
+**amorcées** (projet FUXA) ne sont pas ici mais dans `configurations/conteneurs/scada/donnees/`.
+
+## Conventions et préparation de l'hôte
+
+Hôte Ubuntu Server 26.04 arm64 ; compte et nom d'hôte = nom du nœud ; données dans `~/donnees/vlanXX/donnees` ;
+images dans `~/images`. Procédure complète de (ré)installation : `netbox/README.md`, « (Ré)installer un nœud ».
+
+Mettre à jour les paquets d'un nœud : décision explicite, **nœud passif d'abord** ; sur le maître, basculer avant
 (`docker stop ha-cluster`), mettre à jour, puis relancer l'agent.

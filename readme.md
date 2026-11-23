@@ -40,7 +40,7 @@ Chaîne de conduite : **SCADA → OPC-UA → automate → Modbus TCP → simulat
 |---|---|
 | [`netbox/`](netbox/README.md) | **Source de vérité et outillage IaC** : export du modèle, générateur, publication, collecte et contrôle de dérive, migrations NetBox, runbook d'exploitation. |
 | [`iaac/`](iaac/readme.md) | IaC historique et son interface web (vue graphique interactive), **synchronisée depuis NetBox**, enrichissable à la main. |
-| [`configurations/`](configurations/README.md) | Code et images des conteneurs (automate, simulateur, agent HA, SCADA, données), préparation des nœuds. |
+| [`configurations/`](configurations/README.md) | Code et images des conteneurs (automate, simulateur, agent HA, SCADA, données) ; **un dossier par nœud** (`machines/<nœud>/`, généré depuis NetBox : tout ce qui y est déployé, et sa fiche). |
 | [`tests/`](tests/README.md) | Tests du procédé (hors ligne) et vérification de bout en bout sur la plateforme. |
 | [`documentation/`](documentation/README.md) | Spécifications, audit et son suivi, **journal d'exploitation**, schéma d'architecture. |
 

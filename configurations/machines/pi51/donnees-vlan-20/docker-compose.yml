@@ -1,0 +1,18 @@
+# Généré par netbox/outils/generer.py depuis NetBox. Ne pas modifier à la main.
+name: donnees-vlan-20
+services:
+  donnees-vlan-20:
+    image: serveur-ftp:latest
+    container_name: donnees-vlan-20
+    restart: unless-stopped
+    environment:
+    - FTP_USER=admin
+    - FTP_PASS=${FTP_PASS:?definir FTP_PASS dans .env}
+    volumes:
+    - /home/pi51/donnees/vlan20:/partage
+    networks:
+      vlan20:
+        ipv4_address: 192.168.20.30
+networks:
+  vlan20:
+    external: true

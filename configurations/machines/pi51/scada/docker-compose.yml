@@ -1,0 +1,15 @@
+# Généré par netbox/outils/generer.py depuis NetBox. Ne pas modifier à la main.
+name: scada
+services:
+  scada:
+    image: scada-fuxa:1.3.3
+    container_name: scada
+    restart: unless-stopped
+    volumes:
+    - ./appdata:/usr/src/app/FUXA/server/_appdata
+    networks:
+      vlan30:
+        ipv4_address: 192.168.30.10
+networks:
+  vlan30:
+    external: true

@@ -138,17 +138,31 @@ class TestGeneration(unittest.TestCase):
     def test_sortie_videe_seulement_si_marquee(self):
         import tempfile
         with tempfile.TemporaryDirectory() as d:
-            sortie = Path(d) / "genere"
-            generer(self.m, sortie)
-            (sortie / "pi51" / "perime").mkdir()
-            generer(self.m, sortie)
-            self.assertFalse((sortie / "pi51" / "perime").exists())  # plus de fichier périmé
+            sortie, machines = Path(d) / "genere", Path(d) / "machines"
+            generer(self.m, sortie, machines)
+            self.assertTrue((machines / "pi51" / "scada" / "docker-compose.yml").exists())  # fichiers du nœud
+            self.assertTrue((sortie / "pi51.amorcage").exists() and not (sortie / "pi51").exists())
+            (machines / "pi51" / "perime.yml").write_text("x")
+            generer(self.m, sortie, machines)
+            self.assertFalse((machines / "pi51" / "perime.yml").exists())  # plus de fichier périmé
+            (machines / "pi99").mkdir()
+            (machines / "pi99" / "precieux.txt").write_text("x")  # dossier non généré : jamais touché
+            generer(self.m, sortie, machines)
+            self.assertTrue((machines / "pi99" / "precieux.txt").exists())
             autre = Path(d) / "autre"
             autre.mkdir()
             (autre / "precieux.txt").write_text("x")
             with self.assertRaises(SystemExit):
                 generer(self.m, autre)
             self.assertTrue((autre / "precieux.txt").exists())
+
+    def test_fiche_du_noeud(self):
+        fiche = self.f["pi51/README.md"]
+        for attendu in ("infra, conduite", "`~/scada/docker-compose.yml`", "`~/donnees-vlan-20/.env`",
+                        "clé privée de synchronisation", "amorcées"):
+            self.assertIn(attendu, fiche)
+        self.assertIn("Clé publique de `pi51`", self.f["pi31/README.md"])  # agents rsync de pi51
+        self.assertIn("|---|---|", fiche)  # tableaux intacts
 
     def test_topologie(self):
         page = self.f["topologie.html"]

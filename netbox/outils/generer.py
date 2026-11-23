@@ -15,6 +15,7 @@ et à la racine :
 import argparse
 import ipaddress
 import json
+import os
 import shutil
 import sys
 from pathlib import Path
@@ -216,20 +217,23 @@ def topologie(m):
     return PAGE_TOPOLOGIE.replace("__DONNEES__", donnees)
 
 
-def publier(m, noeuds, amorcages=()):
+def publier(m, noeuds, amorcages=(), dossier_noeuds="../../configurations/machines"):
+    exclure = f"--exclude=README.md --exclude={MARQUE}"  # la fiche et la marque restent dans le repo
     lignes = ["#!/bin/sh", ENTETE.strip(),
-              "# Copie genere/<noeud>/ dans le dossier personnel de chaque nœud, par SSH (compte = nom du nœud).",
+              "# Copie configurations/machines/<noeud>/ dans le dossier personnel de chaque nœud, par SSH",
+              "# (compte = nom du nœud), puis l'amorçage (fichiers absents seulement).",
               "# Sans option : affiche seulement ce qui serait copié.  Pour copier : sh publier.sh --appliquer",
               "# Les fichiers remplacés sont gardés à côté avec le suffixe ~1~, ~2~... (GNU tar --backup).",
               "set -e", 'cd "$(dirname "$0")"', ""]
     for n in noeuds:
         ip = ip_principale(m, n).ip
+        source = f"{dossier_noeuds}/{n}"
         lignes += [f'echo "== {n} ({ip})"',
                    'if [ "$1" = "--appliquer" ]; then',
                    # --no-overwrite-dir : ne pas changer les droits de ~ (sshd refuserait les clés)
-                   f"  tar -C {n} -cf - . | ssh {n}@{ip} 'tar -C ~ --no-overwrite-dir --backup=numbered -xvf -'",
+                   f"  tar -C {source} {exclure} -cf - . | ssh {n}@{ip} 'tar -C ~ --no-overwrite-dir --backup=numbered -xvf -'",
                    "else",
-                   f"  tar -C {n} -cf - . | tar -tvf -",
+                   f"  tar -C {source} {exclure} -cf - . | tar -tvf -",
                    "fi"]
         if n in amorcages:
             # Amorçage : déposé seulement là où rien n'existe encore (jamais d'écrasement de l'état d'exécution).
@@ -243,6 +247,81 @@ def publier(m, noeuds, amorcages=()):
                        "fi"]
         lignes.append("")
     return "\n".join(lignes)
+
+
+DESTINATIONS = {
+    "creation_vlan.sh": "`~/creation_vlan.sh` : réseaux Docker macvlan, à lancer une fois (relançable)",
+    "config_cluster.json": "`~/config_cluster.json` : lu par l'agent HA",
+}
+
+
+def fiche(m, noeud, chemins):
+    """README du dossier d'un nœud : ce qui y tourne, d'où vient chaque fichier, ce qui reste manuel."""
+    eq = m["equipements"][noeud]
+    t = m["types"].get(eq["type"], {})
+    services = sorted((n, s) for n, s in (m.get("services") or {}).items() if noeud in membres(m, s["cluster"]))
+    l = [f"# {noeud}", "",
+         "> Dossier **généré** par `netbox/outils/generer.py` depuis NetBox : ne pas le modifier à la main.",
+         "> Modifier NetBox, puis `python netbox/outils/synchro.py` ; publier avec `sh netbox/genere/publier.sh`.", "",
+         "| | |", "|---|---|",
+         f"| Rôle | {m['roles'][eq['role']]['nom']} : {eq.get('description', '')} |",
+         f"| Matériel | {t.get('modele', '') if t.get('modele', '').startswith(t.get('fabricant', '')) else (t.get('fabricant', '') + ' ' + t.get('modele', '')).strip()} |",
+         f"| Système | {m.get('plateformes', {}).get(eq.get('plateforme'), '')} |",
+         f"| Clusters | {', '.join(clusters_de(eq))} |",
+         f"| Accès | `ssh {noeud}@{ip_principale(m, noeud).ip}` |"]
+    for g, v in (m.get("vrrp") or {}).items():
+        if noeud in v["membres"]:
+            l.append(f"| Haute disponibilité | groupe VRRP `{g}` (VRID {v['vrid']}, VIP {v['vip']}), "
+                     f"priorité {v['membres'][noeud]} |")
+    l += ["", "## Réseau", "", "| Interface | VLAN | IP | Câble |", "|---|---|---|---|"]
+    for i, itf in (eq.get("interfaces") or {}).items():
+        vlan = f"trunk {', '.join(map(str, itf['vlans']))}" if itf.get("vlans") else str(itf.get("vlan", ""))
+        l.append(f"| `{i}` | {vlan} | {itf.get('ip', '')} | {itf.get('cable', '')} |")
+    l += ["", "## Services", "", "| Service | Dossier | IP | Démarrage | Image |", "|---|---|---|---|---|"]
+    for n, s in services:
+        demarrage = "agent HA, sur le maître seulement" if s.get("ha") else \
+            ("Docker, réseau de l'hôte" if s["compose"].get("network_mode") == "host" else "Docker, toujours")
+        ips = ", ".join(a.split("/")[0] for a in (s.get("ip") or {}).values())
+        l.append(f"| `{n}` ({s['cluster']}) | `~/{s['chemin']}` | {ips} | {demarrage} | `{s['compose']['image']}` |")
+    l += ["", "## Fichiers de ce dossier", "", "| Fichier | Destination sur le nœud |", "|---|---|"]
+    for c in chemins:
+        nom = c.split("/")[-1]
+        if nom.endswith("-netplan.yaml"):
+            dest = "`/etc/netplan/` : `sudo install -m 600 ~/" + nom + " /etc/netplan/ && sudo netplan try`"
+        else:
+            dest = DESTINATIONS.get(c, f"`~/{c}`")
+        l.append(f"| `{c}` | {dest} |")
+    amorces = [(n, d, src) for n, s in services for d, src in (s.get("amorcage") or {}).items()]
+    if amorces:
+        l += ["", "Données **amorcées** (déposées seulement si absentes, jamais écrasées) :"]
+        l += [f"- `~/{(m['services'][n]['chemin'])}/{d}` depuis `{src}`" for n, d, src in amorces]
+    l += ["", "## Hors NetBox (à faire ou vérifier à la main)", "",
+          "- Clé SSH du poste d'administration dans `~/.ssh/authorized_keys` ; compte et nom d'hôte = `" + noeud + "`.",
+          "- Docker installé (`configurations/machines/installation_docker.sh`), mises à jour automatiques "
+          "désactivées (`configurations/machines/apt/`).",
+          "- Images dans `~/images` (`configurations/images/`, chargées par `docker load` ou par l'agent HA)."]
+    # Clés de services clients venant d'autres nœuds (ex. agents rsync de pi51) : une ligne par nœud d'origine.
+    clients_par_hote = {}
+    for p in (eq.get("ports") or {}).values():
+        for client in p.get("clients") or []:
+            if client in (m.get("services") or {}):
+                for hote in membres(m, m["services"][client]["cluster"]):
+                    clients_par_hote.setdefault(hote, set()).add(client)
+    for hote, clients in sorted(clients_par_hote.items()):
+        l.append(f"- Clé publique de `{hote}` (`~/.ssh/id_rsa.pub`, utilisée par {', '.join(f'`{c}`' for c in sorted(clients))}) "
+                 "dans `~/.ssh/authorized_keys`.")
+    cle_privee = [n for n, s in services if any("/root/.ssh/id_rsa" in v for v in s["compose"].get("volumes") or [])]
+    if cle_privee:
+        l.append(f"- `~/.ssh/id_rsa` : clé privée de synchronisation, montée en lecture seule par "
+                 f"{', '.join(f'`{n}`' for n in cle_privee)}.")
+    for n, s in services:
+        for e in s["compose"].get("environment") or []:
+            if "${" in e:
+                l.append(f"- `~/{s['chemin']}/.env` : `{e.split('=', 1)[0]}=…` (secret, droits 600, jamais versionné).")
+        if s.get("ha"):
+            l.append(f"- `{n}` : conteneur créé d'avance (`cd ~/{s['chemin']} && docker compose create`), "
+                     "jamais `up` : c'est l'agent HA qui le démarre.")
+    return "\n".join(l) + "\n"
 
 
 MARQUE = ".genere-par-netbox"
@@ -262,8 +341,33 @@ def vider_sortie(sortie):
                                  encoding="utf-8")
 
 
-def generer(m, sortie=None):
-    """Retourne {chemin relatif: contenu} et l'écrit dans 'sortie' si fourni."""
+MACHINES = RACINE_REPO / "configurations" / "machines"
+
+
+def lire_pour_deploiement(source):
+    """Fichier du repo à déployer : texte normalisé en LF (une copie de travail Windows peut être en CRLF),
+    binaire (ex. base FUXA) laissé intact."""
+    contenu = (RACINE_REPO / source).read_bytes()
+    return contenu if b"\0" in contenu else contenu.replace(b"\r\n", b"\n")
+
+
+def ecrire(fichiers, dossier):
+    vider_sortie(dossier)
+    for chemin, contenu in fichiers.items():
+        cible = dossier / chemin
+        cible.parent.mkdir(parents=True, exist_ok=True)
+        if isinstance(contenu, bytes):
+            cible.write_bytes(contenu)
+        else:
+            cible.write_text(contenu, encoding="utf-8", newline="\n")
+
+
+def generer(m, sortie=None, machines=None):
+    """Retourne {chemin relatif: contenu}.
+
+    Si fournis : les fichiers de chaque nœud vont dans machines/<noeud>/ (versionné dans le repo), le reste
+    (matrice de flux, topologie, publier.sh, amorçage) dans sortie/ (netbox/genere, hors git).
+    """
     fichiers = {}
     noeuds = [n for n, e in m["equipements"].items() if est_ubuntu(e)]
     for n in noeuds:
@@ -276,25 +380,27 @@ def generer(m, sortie=None):
             fichiers[f"{n}/{s['chemin']}/docker-compose.yml"] = compose(m, snom)
             # Configurations versionnées dans le repo, déployées à côté du compose (référencées dans NetBox).
             for dest, source in (s.get("fichiers") or {}).items():
-                fichiers[f"{n}/{s['chemin']}/{dest}"] = (RACINE_REPO / source).read_bytes()
+                fichiers[f"{n}/{s['chemin']}/{dest}"] = lire_pour_deploiement(source)
             for dest, source in (s.get("amorcage") or {}).items():
-                fichiers[f"{n}.amorcage/{s['chemin']}/{dest}"] = (RACINE_REPO / source).read_bytes()
+                fichiers[f"{n}.amorcage/{s['chemin']}/{dest}"] = lire_pour_deploiement(source)
                 amorcages.add(n)
     for gnom, g in (m.get("vrrp") or {}).items():
         for n in g["membres"]:
             fichiers[f"{n}/config_cluster.json"] = config_cluster(m, gnom)
+    for n in noeuds:
+        fichiers[f"{n}/README.md"] = fiche(m, n, sorted(k[len(n) + 1:] for k in fichiers if k.startswith(f"{n}/")))
     fichiers["matrice_flux.md"] = matrice_flux(m)
     fichiers["topologie.html"] = topologie(m)
-    fichiers["publier.sh"] = publier(m, noeuds, amorcages)
+    try:
+        relatif = os.path.relpath(machines or MACHINES, sortie or RACINE_REPO / "netbox" / "genere").replace("\\", "/")
+    except ValueError:  # lecteurs différents sous Windows : chemin absolu
+        relatif = Path(machines or MACHINES).resolve().as_posix()
+    fichiers["publier.sh"] = publier(m, noeuds, amorcages, relatif)
     if sortie:
-        vider_sortie(Path(sortie))
-        for chemin, contenu in fichiers.items():
-            cible = Path(sortie) / chemin
-            cible.parent.mkdir(parents=True, exist_ok=True)
-            if isinstance(contenu, bytes):
-                cible.write_bytes(contenu)
-            else:
-                cible.write_text(contenu, encoding="utf-8", newline="\n")
+        ecrire({k: v for k, v in fichiers.items() if k.split("/")[0] not in noeuds}, Path(sortie))
+    if machines:
+        for n in noeuds:
+            ecrire({k[len(n) + 1:]: v for k, v in fichiers.items() if k.startswith(f"{n}/")}, Path(machines) / n)
     return fichiers
 
 
@@ -302,16 +408,18 @@ def main():
     console_utf8()
     p = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     p.add_argument("source", nargs="?", default=str(Path(__file__).resolve().parents[1] / "donnees" / "sii.yaml"))
-    p.add_argument("-o", "--sortie", default=str(Path(__file__).resolve().parents[1] / "genere"))
+    p.add_argument("-o", "--sortie", default=str(Path(__file__).resolve().parents[1] / "genere"),
+                   help="matrice, topologie, publier.sh, amorçage (hors git)")
+    p.add_argument("--machines", default=str(MACHINES), help="dossiers des nœuds (versionnés)")
     args = p.parse_args()
     m = charger(args.source)
     erreurs, _ = valider(m)
     if erreurs:
         sys.exit("Modèle invalide, lancer outils/modele.py pour le détail.")
-    fichiers = generer(m, args.sortie)
+    fichiers = generer(m, args.sortie, args.machines)
     for chemin in sorted(fichiers):
         print(f"  {chemin}")
-    print(f"{len(fichiers)} fichiers écrits dans {args.sortie}")
+    print(f"{len(fichiers)} fichiers écrits ({args.machines}/<noeud>/ et {args.sortie})")
 
 
 if __name__ == "__main__":

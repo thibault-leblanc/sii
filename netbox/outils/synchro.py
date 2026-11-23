@@ -47,6 +47,37 @@ def netbox(verifier):
     return True
 
 
+def machines_a_jour(m):
+    """Les dossiers configurations/machines/<noeud>/ (versionnés) correspondent-ils à la génération ?"""
+    from generer import MACHINES, MARQUE, generer
+    from modele import est_ubuntu
+    fichiers = generer(m)
+    noeuds = [n for n, e in m["equipements"].items() if est_ubuntu(e)]
+    ecarts = []
+    for n in noeuds:
+        attendus = {k[len(n) + 1:]: v for k, v in fichiers.items() if k.startswith(f"{n}/")}
+        dossier = MACHINES / n
+        presents = {p.relative_to(dossier).as_posix() for p in dossier.rglob("*") if p.is_file() and p.name != MARQUE} \
+            if dossier.exists() else set()
+        for chemin in sorted(set(attendus) | presents):
+            if chemin not in presents:
+                ecarts.append(f"{n}/{chemin} : manquant")
+            elif chemin not in attendus:
+                ecarts.append(f"{n}/{chemin} : en trop (périmé)")
+            else:
+                attendu = attendus[chemin] if isinstance(attendus[chemin], bytes) else attendus[chemin].encode("utf-8")
+                # Un checkout Windows (core.autocrlf) peut mettre des CRLF dans les fichiers texte.
+                if (dossier / chemin).read_bytes().replace(b"\r\n", b"\n") != attendu.replace(b"\r\n", b"\n"):
+                    ecarts.append(f"{n}/{chemin} : différent")
+    for d in sorted(MACHINES.iterdir()):
+        if (d / MARQUE).exists() and d.name not in noeuds:
+            ecarts.append(f"{d.name}/ : nœud absent du modèle (dossier périmé)")
+    for e in ecarts:
+        print(f"  ✗ {e}")
+    print(f"  configurations/machines/ : {'à jour' if not ecarts else f'{len(ecarts)} écart(s)'}")
+    return not ecarts
+
+
 def main():
     console_utf8()
     p = argparse.ArgumentParser(description=__doc__.splitlines()[0])
@@ -68,11 +99,13 @@ def main():
     r = subprocess.run([sys.executable, str(NETBOX / "outils" / "vers_iaac.py")] + (["--verifier"] if args.verifier else []))
     ok &= r.returncode == 0
 
-    if not args.verifier:
-        etape("4. Génération (netbox/genere/)")
+    etape("4. Génération (configurations/machines/<noeud>/, netbox/genere/)")
+    if args.verifier:
+        ok &= machines_a_jour(charger(SOURCE_DEFAUT))
+    else:
         subprocess.run([sys.executable, str(NETBOX / "outils" / "generer.py"), "-o", str(NETBOX / "genere")],
                        stdout=subprocess.DEVNULL, check=True)
-        print("  netbox/genere/ régénéré")
+        print("  configurations/machines/<noeud>/ et netbox/genere/ régénérés")
 
     etape("5. Tests")
     for dossier, cwd in (("tests", NETBOX), ("tests", RACINE_REPO)):
@@ -85,7 +118,8 @@ def main():
 
     if not args.verifier:
         etape("Changements à relire avant commit")
-        subprocess.run(["git", "status", "--short", "--", "netbox/donnees", "iaac"], cwd=RACINE_REPO)
+        subprocess.run(["git", "status", "--short", "--", "netbox/donnees", "iaac", "configurations/machines"],
+                       cwd=RACINE_REPO)
     print(f"\n{'À JOUR' if ok else 'PAS À JOUR'}")
     sys.exit(0 if ok else 1)
 
