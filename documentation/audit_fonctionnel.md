@@ -355,3 +355,20 @@ pi31 maître, pi32 passif, réplication VLAN20 opérationnelle.
 
 Nouveaux constats ouverts : `unattended-upgrades` sature un Pi 3B après un recalage d'horloge ; horloge des nœuds
 dépendante d'Internet (NTS, 2 h pour se recaler) ; le FTP VLAN20 sert encore de dépôt d'artefacts de déploiement sur pi51.
+
+### 10.2 Haute disponibilité, SCADA et IaC (2026-11-23)
+
+| Constat | État | Correction |
+|---|---|---|
+| Panne de service sans bascule (régression du 22/11 : `weight` + `nopreempt`) | ✅ | Sonde en échec = FAULT ; testé (panne de l'automate, puis du simulateur). |
+| H6 (double maître, doublon d'IP) | ✅ | Contrôle ARP des IP de service avant démarrage, garde-fou sans VIP, transitions sérialisées. |
+| Mises à jour automatiques redémarrant Docker (procédé arrêté à froid) | ✅ | Désactivées sur les nœuds, configuration versionnée (`configurations/machines/apt/`). |
+| OPC-UA injoignable depuis le poste : routage asymétrique de l'automate (deux réseaux) | ✅ | Route par défaut par le VLAN30 (`passerelle` dans NetBox, `gw_priority`). |
+| Poste d'administration mal décrit (192.168.10.49 au lieu de 192.168.1.26, côté WAN) | ✅ | Corrigé dans NetBox ; la matrice de flux montre désormais 9 flux traversant le pare-feu. |
+| §1.1 : SCADA sans place dans l'infrastructure | ✅ | Cluster `conduite` (pi51, pi52 à venir), FUXA 1.3.3 en 192.168.30.10, projet versionné et amorcé. |
+| R6 (projet FUXA versionné) | ✅ (partiel) | Projet de référence dans `configurations/conteneurs/scada/donnees/` ; procédure de mise à jour documentée. Export lisible (JSON) à faire. |
+| Configurations des applications hors du circuit de déploiement | ✅ | `fichiers` dans NetBox : `config_api.json`, `config_simu.json` déployées depuis le repo. |
+| IaC historique (`iaac/`) divergente de NetBox | ✅ | Synchronisée depuis NetBox (ajouts manuels conservés), interface web et provisioning branchés sur NetBox, garde-fou de commit. |
+| P6 (FUXA interroge directement le simulateur) | ⏸ | Conservé à la demande (projet fonctionnel) ; le pare-feu l'autorise. |
+| HA du cluster `conduite` | ⏸ | Attend pi52 (seconde instance VRRP). |
+| Règles de pare-feu bien plus larges que la matrice de flux | ⏸ | Audit de sécurité. |

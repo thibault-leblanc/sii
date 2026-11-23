@@ -13,3 +13,5 @@ Dockerfile text eol=lf
 *.db binary
 *.pdf binary
 *.png binary
+# Hooks git (pas d extension) : exécutés par sh, donc en LF
+.githooks/* text eol=lf

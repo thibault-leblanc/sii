@@ -16,15 +16,29 @@ donnees/sii.yaml ──────────▶ NetBox ───────�
 
 | Fichier | Rôle |
 |---|---|
-| `donnees/sii.yaml` | Modèle pré-rempli depuis `iaac/infrastructure.json`, avec les corrections de l'audit (I1 à I9). Contient la liste `a_verifier`. |
-| `outils/modele.py` | Valide le modèle (IP en double, VLAN, câbles, clients…). Fonctionne hors ligne. |
-| `outils/importer.py` | Charge le modèle dans NetBox. Relançable sans créer de doublons. |
-| `outils/exporter.py` | Relit NetBox au même format. `--comparer` vérifie l'aller-retour. |
-| `outils/generer.py` | Produit `genere/<noeud>/…`, `genere/matrice_flux.md`, `genere/topologie.html` (vue graphique) et `genere/publier.sh`. |
-| `outils/collecte.sh` | Relève l'état réel d'un nœud en JSON (lecture seule). |
-| `outils/derive.py` | Compare l'état réel au modèle. |
+| `donnees/sii.yaml` | **Export de NetBox** (copie versionnée du modèle), avec la liste `a_verifier` (points non tranchés, qui ne vivent pas dans NetBox). |
+| `outils/synchro.py` | **Commande unique** : export NetBox, validation, `iaac/infrastructure.json`, génération, tests. `--verifier` : contrôle sans écrire (garde-fou de commit). |
+| `outils/modele.py` | Valide le modèle (IP en double, VLAN, câbles, clients, fichiers référencés…). Hors ligne. |
+| `outils/exporter.py` | Relit NetBox au format `sii.yaml`. `--comparer` vérifie l'aller-retour. |
+| `outils/importer.py` | Charge un modèle dans un NetBox **vide** (reconstruction). Ne plus l'utiliser sur l'instance en service. |
+| `outils/vers_iaac.py` | Synchronise `iaac/infrastructure.json` (ajouts manuels conservés). |
+| `outils/generer.py` | Produit `genere/<noeud>/…` (netplan, macvlan, compose, `config_cluster.json`, configurations), `genere/<noeud>.amorcage/`, `matrice_flux.md`, `topologie.html`, `publier.sh`. |
+| `outils/collecte.sh`, `outils/derive.py` | Relève l'état réel des nœuds et le compare au modèle (dérive). |
+| `migrations/` | Modifications de NetBox **datées, scriptées et relançables** (traçabilité des changements de modèle). |
 | `deploiement/docker-compose.override.yml` | Réglages locaux pour `netbox-docker`. |
-| `tests/` | Tests hors ligne. Ils prouvent notamment que le modèle redonne à l'identique les netplan, compose et `config_cluster.json` actuels. |
+| `tests/` | Tests hors ligne (modèle, génération, synchronisation de l'IaC, dérive). |
+
+### Notions du modèle
+
+| Notion | Dans NetBox | Effet |
+|---|---|---|
+| Nœud | Device ; clusters dans le champ personnalisé `clusters` (plusieurs possibles) | netplan et réseaux macvlan générés |
+| Service | VM du cluster cible, contexte local : `chemin`, `source`, `compose`, `passerelle`, `fichiers`, `amorcage` | un compose par membre du cluster |
+| `ha` | étiquette sur la VM | piloté par l'agent HA (`config_cluster.json`) |
+| `fichiers` | `{destination: fichier du repo}` | déposé à chaque publication (configurations des applications) |
+| `amorcage` | `{destination: fichier du repo}` | déposé **seulement s'il est absent** (état d'exécution jamais écrasé, ex. projet FUXA) |
+| `passerelle` | réseau du service | route par défaut d'un conteneur à plusieurs réseaux (`gw_priority`) |
+| Ports et clients | Service NetBox, champ `clients` | matrice de flux, liste de contrôle du pare-feu |
 
 Prérequis sur le poste d'administration : Python 3.11+, `pip install -r outils/requirements.txt`, Docker Desktop.
 Toutes les commandes se lancent depuis `netbox/`.
@@ -219,8 +233,9 @@ Les lignes `INFO` sont normales : la VIP présente sur le maître, et les servic
 | Situation | Ce que fait l'agent HA |
 |---|---|
 | État normal | Le maître (pi31 en nominal) porte la VIP 192.168.10.251 et fait tourner l'automate et le simulateur. Le passif a ses conteneurs **créés mais arrêtés**. |
-| Service planté sur le maître | Sonde en échec deux fois de suite (10 s) : priorité 100 − 20 = 80 < 90, le passif prend la main. |
+| Service planté sur le maître | Sonde en échec trois fois de suite (~30 s) : le maître passe en FAULT et arrête ses services, le passif prend la main. |
 | Maître éteint ou agent arrêté | L'agent arrête ses services en partant (`notify_stop`), le passif prend la main en 1 à 3 s. |
+| Démarrage des services sur le nouveau maître | Seulement quand leurs IP ne répondent plus ailleurs (contrôle ARP, attente ≤ 90 s). |
 | Retour d'un nœud | Il reste passif (`nopreempt`) : pas de reprise automatique, donc pas d'aller-retour. |
 | Services allumés sur un nœud sans VIP | Le garde-fou les arrête au bout de 20 s (doublon d'IP impossible à faire durer). |
 
@@ -244,37 +259,44 @@ Depuis Git Bash, à la racine du repo (exemple : pi31) :
 
 1. Compte et nom d'hôte `pi31`, IP 192.168.10.10. Clé SSH du poste : `ssh-keygen -R 192.168.10.10`, puis copier
    `~/.ssh/id_*.pub` dans `~/.ssh/authorized_keys` du nœud.
-2. Docker : `scp configurations/machines/installation_docker.sh pi31@192.168.10.10:` puis `bash installation_docker.sh`.
-3. Fichiers générés : `tar -C netbox/genere/pi31 -cf - . | ssh pi31@192.168.10.10 'tar -C ~ --no-overwrite-dir -xf -'`.
-4. Configuration des applications, version commitée (fins de ligne Linux) :
-   `git show HEAD:configurations/conteneurs/api/rincage/config_api.json | ssh pi31@192.168.10.10 'cat > ~/api/rincage/config_api.json'`
-   (idem `config_simu.json` dans `~/simulation/rincage`).
-5. Images : `scp configurations/images/{api-rincage,sim-rincage,agent-ha}.tar pi31@192.168.10.10:images/`.
-6. Sur le nœud : `sudo install -m 600 ~/99-pi31-netplan.yaml /etc/netplan/ && sudo netplan try`,
+2. Docker et mises à jour : `scp -r configurations/machines/installation_docker.sh configurations/machines/apt pi31@192.168.10.10:`,
+   puis `bash installation_docker.sh` et la désactivation des mises à jour automatiques (`configurations/machines/README.md`).
+3. Fichiers générés, configurations des applications comprises (`fichiers` du modèle) :
+   `tar -C netbox/genere/pi31 -cf - . | ssh pi31@192.168.10.10 'tar -C ~ --no-overwrite-dir -xf -'`
+   (ou `sh netbox/genere/publier.sh --appliquer` pour tous les nœuds).
+4. Images : `scp configurations/images/{api-rincage,sim-rincage,agent-ha}.tar pi31@192.168.10.10:images/`.
+5. Sur le nœud : `sudo install -m 600 ~/99-pi31-netplan.yaml /etc/netplan/ && sudo netplan try`,
    `sh ~/creation_vlan.sh`, `for t in ~/images/*.tar; do docker load -i "$t"; done`,
    `mkdir -p ~/donnees/vlan20/donnees ~/donnees/vlan30/donnees`,
    `docker compose create` dans `~/api/rincage` et `~/simulation/rincage`, puis
    `cd ~/ha-cluster && docker compose up -d` (le nœud démarre passif).
-7. Synchro : `ssh pi51@192.168.10.12 'cat ~/.ssh/id_rsa.pub' | ssh pi31@192.168.10.10 'cat >> ~/.ssh/authorized_keys'`.
-8. Contrôle : `collecte.sh` puis `derive.py`.
+6. Synchro : `ssh pi51@192.168.10.12 'cat ~/.ssh/id_rsa.pub' | ssh pi31@192.168.10.10 'cat >> ~/.ssh/authorized_keys'`.
+7. Contrôle : `collecte.sh` puis `derive.py`.
 
-## Ensuite : modifier la plateforme
+### SCADA (cluster conduite, pi51)
 
-1. Modifier dans NetBox (interface web ou API).
-2. Lancer `python outils/exporter.py -o donnees/sii.yaml`, puis `git diff` pour relire et commiter.
-3. Lancer `python outils/generer.py -o genere/`, puis `sh genere/publier.sh --appliquer`, puis appliquer sur le nœud.
-4. Lancer `collecte.sh` puis `derive.py` pour vérifier.
+Déployé comme les autres services (`~/scada`, IP 192.168.30.10). Ses données FUXA sont **amorcées** : publiées
+seulement si elles n'existent pas (`publier.sh` dépose `genere/pi51.amorcage/` avec `--skip-old-files`). Mise à
+jour de l'image : `docker load`, puis `cd ~/scada && docker compose up -d`. Vérification :
+`python tests/plateforme/verifier_chaine_scada.py`. Détails : `configurations/conteneurs/scada/README.md`.
 
-Exemple (fait le 2026-11-22) : le délai d'arrêt de l'agent HA (`stop_grace_period: 30s`) a été ajouté dans le
-`compose` du contexte local de la VM `ha-cluster` dans NetBox, puis exporté, généré et déployé.
+## Modifier la plateforme
 
-**NetBox fait foi** : ne plus lancer `importer.py` sur `sii.yaml`, il écraserait les modifications faites dans NetBox.
+1. **Modifier NetBox** : par l'interface web pour un changement ponctuel, ou par une **migration** datée dans
+   `migrations/` (script relançable) pour un changement structurant. Noter l'intervention dans le journal.
+2. **Synchroniser** : `python outils/synchro.py` (export vers `sii.yaml`, `iaac/infrastructure.json`, génération,
+   tests). Relire `git status` / `git diff`.
+3. **Publier** : `sh genere/publier.sh` (aperçu), puis `--appliquer` ; appliquer sur le nœud (compose `create`
+   pour les services HA, `up -d` pour les autres).
+4. **Contrôler** : `collecte.sh` sur chaque nœud, puis `python outils/derive.py collecte/` : 0 écart.
+5. **Commiter** : le garde-fou (`.githooks/pre-commit`) refuse si NetBox et le repo divergent ou si un test échoue.
+
+**NetBox fait foi** : ne pas lancer `importer.py` sur l'instance en service, il écraserait les modifications faites
+dans NetBox. Il sert à reconstruire un NetBox vide depuis `sii.yaml`.
 
 ## Hors périmètre
 
-- Les correctifs de l'audit (`documentation/audit_fonctionnel.md`) : le modèle décrit l'existant, sauf les erreurs de
-  données I1 à I9.
-- Le dossier `iaac/` (`serveur.py`, `index.html`, `schema.json`, `infrastructure.json`) sera remplacé par NetBox.
-  Le supprimer une fois l'étape 8 validée.
-- Le pare-feu et le commutateur ne sont pas configurés automatiquement : `matrice_flux.md` et les ports décrits
-  dans NetBox servent de liste de contrôle.
+- Le pare-feu et le commutateur ne sont pas configurés automatiquement : `genere/matrice_flux.md` et les ports
+  décrits dans NetBox servent de liste de contrôle. pfSense filtre **à l'entrée** : le trafic du poste
+  d'administration (côté WAN) est autorisé par les règles de l'onglet WAN.
+- La haute disponibilité du cluster `conduite` attend pi52 (seconde instance VRRP).
