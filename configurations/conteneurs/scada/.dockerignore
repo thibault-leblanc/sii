@@ -1,0 +1,4 @@
+# Ne pas embarquer les anciennes images ni les données d amorçage dans l image
+*.tar
+*.tar.old
+donnees/
