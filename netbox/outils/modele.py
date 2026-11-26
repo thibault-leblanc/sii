@@ -327,7 +327,7 @@ def normaliser(m):
         if isinstance(x, dict):
             sortie = {}
             for k, v in x.items():
-                if k == "ports" and isinstance(v, list):
+                if k == "ports" and isinstance(v, list) and "proto" in x:  # flux déclaré, pas compose.ports
                     v = ports_explicites(v)
                 v = nettoyer(v)
                 if v not in (None, "", [], {}, False):

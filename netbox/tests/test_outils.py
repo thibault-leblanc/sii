@@ -55,6 +55,11 @@ class TestModele(unittest.TestCase):
         b["equipements"]["pi31"]["ports"]["ssh"]["clients"].reverse()
         self.assertEqual(differences(normaliser(self.m), normaliser(b)), [])
 
+    def test_normaliser_garde_les_ports_publies_du_compose(self):
+        b = copy.deepcopy(self.m)
+        b["services"]["sim-rincage"]["compose"]["ports"] = ["192.168.10.12:5000:5000"]
+        self.assertEqual(normaliser(b)["services"]["sim-rincage"]["compose"]["ports"], ["192.168.10.12:5000:5000"])
+
     def test_normaliser_voit_un_vrai_ecart(self):
         b = copy.deepcopy(self.m)
         b["vrrp"]["coeur-sii"]["membres"]["pi32"] = 80
@@ -171,7 +176,8 @@ class TestGeneration(unittest.TestCase):
         self.assertTrue({"pi31", "vlan20", "api-rincage", "cluster:fonctionnel", "vrrp:coeur-sii"} <= ids)
         self.assertTrue(all(l["from"] in ids and l["to"] in ids for l in donnees["liens"]))  # aucun lien orphelin
         rouges = [l for l in donnees["liens"] if l["couche"] == "flux" and l["color"] == "#dc2626"]
-        self.assertEqual(len(rouges), 9)  # rsync x4, et le poste (côté WAN) : SSH x3, OPC-UA, IHM du SCADA
+        self.assertEqual(len(rouges), 10)  # rsync x4, et le poste (côté WAN) : SSH x3, OPC-UA, IHM du SCADA, registre
+        self.assertIn(("poste-admin", "registre"), {(l["from"], l["to"]) for l in rouges})
 
     def test_matrice_de_flux(self):
         lignes = {(l["client"], l["service"]): l for l in flux(self.m)}
@@ -180,6 +186,24 @@ class TestGeneration(unittest.TestCase):
         self.assertEqual((rsync["source"], rsync["destination"], rsync["pare_feu"]),
                          ("192.168.20.31", "192.168.10.10", "oui"))  # audit D4
         self.assertEqual(lignes[("poste-admin", "api-rincage/opcua")]["destination"], "192.168.30.20")
+
+    def test_service_publie_sur_l_hote(self):
+        # Sans IP macvlan, le service répond sur l'IP du nœud qui l'héberge (ex. registre sur 192.168.10.12:5000).
+        m = copy.deepcopy(self.m)
+        m["services"]["essai-hote"] = {
+            "cluster": "infra", "description": "essai", "source": "configurations/conteneurs/cluster",
+            "chemin": "essai-hote",
+            "compose": {"service": "essai-hote", "image": "essai:1.0", "container_name": "essai-hote",
+                        "restart": "unless-stopped", "ports": ["192.168.10.12:5000:5000"]},
+            "ports": {"http": {"proto": "tcp", "ports": [5000], "clients": ["pi31", "poste-admin"]}}}
+        lignes = {(l["client"], l["service"]): l for l in flux(m)}
+        self.assertEqual((lignes[("pi31", "essai-hote/http")]["destination"],
+                          lignes[("pi31", "essai-hote/http")]["pare_feu"]), ("192.168.10.12", "non"))
+        self.assertEqual(lignes[("poste-admin", "essai-hote/http")]["pare_feu"], "oui")
+        self.assertNotIn("None", generer(m)["matrice_flux.md"])
+        s = lire_yaml(generer(m)["pi51/essai-hote/docker-compose.yml"])["services"]["essai-hote"]
+        self.assertEqual(s["ports"], ["192.168.10.12:5000:5000"])
+        self.assertNotIn("networks", s)
 
 
 def collecte_conforme(m, noeud):

@@ -350,6 +350,30 @@ services:
       network_mode: host
       container_name: ha-cluster
       stop_grace_period: 30s
+  registre:
+    cluster: infra
+    description: Registre d'images local (HTTP, sans authentification jusqu'à la GIA)
+    source: configurations/conteneurs/registre
+    chemin: registre
+    compose:
+      image: registry:3.1.2
+      ports:
+      - 192.168.10.12:5000:5000
+      restart: unless-stopped
+      service: registre
+      volumes:
+      - ./data:/var/lib/registry
+      container_name: registre
+    ports:
+      http:
+        proto: tcp
+        ports:
+        - 5000
+        clients:
+        - pi31
+        - pi32
+        - poste-admin
+        description: API du registre (envoi depuis le poste, tirage par les nœuds)
   scada:
     cluster: conduite
     description: SCADA FUXA (IHM de conduite), client OPC-UA de l'automate

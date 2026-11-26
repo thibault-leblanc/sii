@@ -26,6 +26,7 @@
 |---|---|---|---|---|
 | `donnees-vlan-20` (infra) | `~/donnees-vlan-20` | 192.168.20.30 | Docker, toujours | `serveur-ftp:latest` |
 | `donnees-vlan-30` (infra) | `~/donnees-vlan-30` | 192.168.30.30 | Docker, toujours | `serveur-ftp:latest` |
+| `registre` (infra) | `~/registre` |  | Docker, toujours | `registry:3.1.2` |
 | `scada` (conduite) | `~/scada` | 192.168.30.10 | Docker, toujours | `scada-fuxa:1.3.3` |
 | `sync-vlan-20` (infra) | `~/agent-sync/sync-vlan-20` | 192.168.20.31 | Docker, toujours | `agent-sync:latest` |
 | `sync-vlan-30` (infra) | `~/agent-sync/sync-vlan-30` | 192.168.30.31 | Docker, toujours | `agent-sync:latest` |
@@ -40,6 +41,7 @@
 | `creation_vlan.sh` | `~/creation_vlan.sh` : réseaux Docker macvlan, à lancer une fois (relançable) |
 | `donnees-vlan-20/docker-compose.yml` | `~/donnees-vlan-20/docker-compose.yml` |
 | `donnees-vlan-30/docker-compose.yml` | `~/donnees-vlan-30/docker-compose.yml` |
+| `registre/docker-compose.yml` | `~/registre/docker-compose.yml` |
 | `scada/docker-compose.yml` | `~/scada/docker-compose.yml` |
 
 Données **amorcées** (déposées seulement si absentes, jamais écrasées) :

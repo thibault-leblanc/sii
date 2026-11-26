@@ -1,0 +1,11 @@
+# Généré par netbox/outils/generer.py depuis NetBox. Ne pas modifier à la main.
+name: registre
+services:
+  registre:
+    image: registry:3.1.2
+    container_name: registre
+    restart: unless-stopped
+    ports:
+    - 192.168.10.12:5000:5000
+    volumes:
+    - ./data:/var/lib/registry

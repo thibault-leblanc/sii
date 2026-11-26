@@ -57,7 +57,7 @@ def creation_vlan(m, noeud):
     return "\n".join(lignes) + "\n"
 
 
-ORDRE_COMPOSE = ["image", "container_name", "restart", "network_mode", "privileged", "environment", "volumes"]
+ORDRE_COMPOSE = ["image", "container_name", "restart", "network_mode", "privileged", "ports", "environment", "volumes"]
 
 
 def compose(m, snom):
@@ -102,6 +102,12 @@ def config_cluster(m, gnom):
     return json.dumps(conf, indent=2, ensure_ascii=False) + "\n"
 
 
+def hotes(m, proprio):
+    """Service publié sur l'hôte (sans IP macvlan) : il répond sur l'IP principale des nœuds de son cluster."""
+    s = m.get("services", {}).get(proprio)
+    return [ip for n in membres(m, s["cluster"]) if (ip := ip_principale(m, n))] if s else []
+
+
 def flux(m):
     """Une ligne par (client, service) : IP source, destination et besoin d'une règle de pare-feu."""
     proprietaires = {**{n: e.get("ports") for n, e in m["equipements"].items()},
@@ -109,7 +115,7 @@ def flux(m):
     lignes = []
     for proprio, ports in proprietaires.items():
         for pnom, p in (ports or {}).items():
-            cibles = [ipaddress.ip_interface(p["ip"])] if p.get("ip") else ips_de(m, proprio)
+            cibles = [ipaddress.ip_interface(p["ip"])] if p.get("ip") else ips_de(m, proprio) or hotes(m, proprio)
             for client in p.get("clients") or [None]:
                 ligne = {"service": f"{proprio}/{pnom}", "proto": p["proto"],
                          "ports": ", ".join(map(str, ports_compacts(ports_explicites(p["ports"])))),

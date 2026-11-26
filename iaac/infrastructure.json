@@ -301,6 +301,7 @@
       "charges_logiques_nominales": [
         "donnees-vlan-20",
         "donnees-vlan-30",
+        "registre",
         "scada",
         "sync-vlan-20",
         "sync-vlan-30"
@@ -543,6 +544,44 @@
         "network_mode": "host",
         "container_name": "ha-cluster",
         "stop_grace_period": "30s"
+      }
+    },
+    "registre": {
+      "type": "conteneur_docker",
+      "nom": "registre",
+      "fonction": "Registre d'images local (HTTP, sans authentification jusqu'à la GIA)",
+      "cluster": "infra",
+      "hote_parent": [
+        "pi51"
+      ],
+      "haute_disponibilite": false,
+      "depot_source": "https://github.com/thibault-leblanc/sii/tree/main/configurations/conteneurs/registre",
+      "chemin_deploiement": "registre",
+      "ports": {
+        "http": {
+          "proto": "tcp",
+          "ports": [
+            5000
+          ],
+          "clients": [
+            "pi31",
+            "pi32",
+            "poste-admin"
+          ],
+          "description": "API du registre (envoi depuis le poste, tirage par les nœuds)"
+        }
+      },
+      "compose": {
+        "image": "registry:3.1.2",
+        "ports": [
+          "192.168.10.12:5000:5000"
+        ],
+        "restart": "unless-stopped",
+        "service": "registre",
+        "volumes": [
+          "./data:/var/lib/registry"
+        ],
+        "container_name": "registre"
       }
     },
     "scada": {
@@ -790,6 +829,33 @@
       "destination": "192.168.10.12",
       "proto": "tcp",
       "ports": "22",
+      "pare_feu": "oui"
+    },
+    {
+      "client": "pi31",
+      "source": "192.168.10.10",
+      "service": "registre/http",
+      "destination": "192.168.10.12",
+      "proto": "tcp",
+      "ports": "5000",
+      "pare_feu": "non"
+    },
+    {
+      "client": "pi32",
+      "source": "192.168.10.11",
+      "service": "registre/http",
+      "destination": "192.168.10.12",
+      "proto": "tcp",
+      "ports": "5000",
+      "pare_feu": "non"
+    },
+    {
+      "client": "poste-admin",
+      "source": "192.168.1.26",
+      "service": "registre/http",
+      "destination": "192.168.10.12",
+      "proto": "tcp",
+      "ports": "5000",
       "pare_feu": "oui"
     },
     {
