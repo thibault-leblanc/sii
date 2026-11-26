@@ -31,7 +31,7 @@ d'administration si c'est simple ; 3. accès direct depuis la plateforme, **seul
    l'architecture est signalé et inscrit au §7 de la référence.
 3. **Diagnostic en lecture seule** avant modification.
 4. **Validation de l'administrateur** avant : `sudo`, netplan, pare-feu, redémarrage, bascule, « Marche »,
-   suppression, `git push`, décision d'architecture.
+   suppression, push d'un gros changement (règle 11), décision d'architecture.
 5. **HA** : passif d'abord ; `create` seulement sur l'automate et le simulateur ; jamais deux nœuds actifs ; passif en
    échec, on ne touche pas au maître.
 6. **Non-régression** : référence relevée avant le changement, mêmes contrôles après (modop, §4). Tout outil modifié
@@ -45,7 +45,9 @@ d'administration si c'est simple ; 3. accès direct depuis la plateforme, **seul
     temporaire dans git.
 11. **Commits propres** : un sujet par commit, en français, « Sujet : ce qui change », corps en puces (quoi,
     pourquoi, vérifications), ligne `Co-Authored-By` conservée. Garde-fou actif avec `NETBOX_URL` et `NETBOX_TOKEN`
-    définis ; pas de `--no-verify` sans accord.
+    définis ; pas de `--no-verify` sans accord. Changement courant (correctif, documentation, étape d'un lot
+    validé) : commit et push sur `main` sans demander. Gros changement (nouveau lot, plusieurs briques, décision
+    d'architecture, suppression) : branche dédiée et accord avant fusion et push.
 12. **Compte rendu** : fait, vérifié sur la plateforme, testé hors ligne, supposé, décisions attendues.
 
 ## Repères pratiques
