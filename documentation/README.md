@@ -10,7 +10,7 @@
 | [specifications_fonctionnelles_rincage.pdf](specifications_fonctionnelles_rincage.pdf) | Procédé de rinçage : physique, logique de l'automate, sécurités, échanges Modbus et OPC-UA. | Référence |
 | [recapitulatif_procede_api.pdf](recapitulatif_procede_api.pdf) | Synthèse du procédé et de l'automate. Écart connu : seuil de pH 5,5 (contre 5,0 ailleurs, audit P5). | Référence |
 | [IHM_SCADA_Specification.pdf](IHM_SCADA_Specification.pdf) | Spécification de l'IHM de conduite (FUXA). | Référence |
-| [archi_plateforme.drawio](archi_plateforme.drawio) | Schéma d'architecture (pages Logique et Physique). | **Périmé** sur le câblage et le placement du SCADA (audit S1 à S6) : la vue technique de référence est NetBox (`netbox/genere/topologie.html`, interface `iaac/`). |
+| [archi_plateforme.drawio](archi_plateforme.drawio) | Schéma d'architecture : pages **Physique (réel)**, **Logique (réel)** et **Cible**. Source et date sur chaque page ; NetBox reste la référence. | À jour au 2026-11-26 (lot S) |
 
 Où se trouve le reste :
 - l'état voulu de l'infrastructure : NetBox, exporté dans [`netbox/donnees/sii.yaml`](../netbox/donnees/sii.yaml) ;
