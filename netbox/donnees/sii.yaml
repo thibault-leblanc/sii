@@ -2,10 +2,6 @@
 # puis relancer l'export. Les points à vérifier (a_verifier) ne vivent pas dans NetBox.
 a_verifier:
 - 'Pare-feu : fabricant, modèle et noms réels des interfaces (wan, vlan10, vlan20, vlan30).'
-- 'Commutateur : port réel du poste d''administration, port1 ou port2 ? (audit I6, S3)'
-- 'Commutateur : le port4 va-t-il à pi32 (IaaC) ou à pi51 (draw.io) ? Port de pi51 inconnu. (audit S1)'
-- 'Commutateur : le trunk de pi31 (port3) porte-t-il bien le VLAN30 ? (audit S2)'
-- 'Commutateur : que représente srv1 sur le port5 du draw.io ? (audit S3)'
 - 'Clients FTP réels des VLAN20 et VLAN30 : aucun n''est déclaré.'
 - Système et modèle du poste d'administration.
 site:
@@ -82,9 +78,6 @@ equipements:
         vlan: 10
         ip: 192.168.10.90/24
         principale: true
-      port2:
-        vlan: 10
-        description: Accès VLAN10 (poste d'administration ?)
       port3:
         vlans:
         - 10
@@ -97,6 +90,12 @@ equipements:
         - 20
         - 30
         description: trunk pi32
+      port5:
+        vlans:
+        - 10
+        - 20
+        - 30
+        description: trunk pi51
       port6:
         vlan: 10
         description: pare-feu VLAN10
@@ -216,6 +215,7 @@ equipements:
         - 10
         - 20
         - 30
+        cable: commutateur/port5
       eth0.10:
         parent: eth0
         vlan: 10
