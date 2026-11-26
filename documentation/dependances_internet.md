@@ -14,6 +14,7 @@ quand elle est remplacée. Relevé initial : lot 0, 2026-11-26 (configuration de
 | apk (agent HA, serveur FTP, agent de synchro) | Sas | Construction | Sas | À décider | En place |
 | apt dans l'image Python (`gcc`, `libffi-dev`, `libssl-dev`) | Sas | Construction | Sas | À décider | En place |
 | npm (`modbus-serial`, `node-opcua`, images SCADA) | Sas | Construction | Sas | À décider | En place |
+| Image du registre (`registry:3.1.2`, Docker Hub) | pi51 | Installation | Sas (`docker save`, chargée sur pi51) | Archive `.tar` hors git (lot B) | En place |
 | Images NetBox (`netbox-docker`) et pip des outils (`pynetbox`) | Sas | Installation | Sas | Lot E | En place |
 | CDN de l'interface `iaac/` (cdnjs `jsoneditor`, unpkg `vis-network`, Google Fonts) | Sas (navigateur) | Exécution | Sas | Copies locales | En place |
 | CDN de `netbox/genere/topologie.html` (unpkg `vis-network@9.1.9`) | Sas (navigateur) | Consultation | Sas | Copie locale | En place |
