@@ -144,5 +144,6 @@ Une brique est **terminée** quand les six preuves existent et que son retour ar
 | E7 | Ni authentification, ni chiffrement, registre en HTTP | Avec la GIA |
 | E8 | Bascule à froid (audit H4), nœud d'infrastructure unique | À traiter selon les besoins |
 | E9 | Dépendances à internet | Registre du mode opératoire, §2 |
-| E10 | Images de la plateforme en `:latest` (`api-rincage-image`, `simu-rincage-image`, `agent-ha`, `agent-sync`, `serveur-ftp`) ; seul `scada-fuxa:1.3.3` est versionné | Mode opératoire, lot B |
+| E10 | Images de la plateforme en `:latest` (`api-rincage-image`, `simu-rincage-image`, `agent-ha`, `agent-sync`, `serveur-ftp`) ; seul `scada-fuxa:1.3.3` est versionné ; images de base non figées : `alpine:latest` (serveur FTP, agent de synchro), `python:3.11-slim` (automate, simulateur), `frangoteam/fuxa:latest` (`scada-dev`) | Mode opératoire, lot B |
 | E11 | Le dépôt FTP du VLAN20 (`~/donnees/vlan20/donnees` sur pi51, répliqué sur pi31 et pi32) contient encore d'anciens artefacts de déploiement (`.tar`, compose, `config_cluster.json`) | Nettoyage avec accord (suppression) |
+| E12 | L'interface `iaac/` charge `vis-network` sans version (`unpkg.com/vis-network/...`) | À figer |

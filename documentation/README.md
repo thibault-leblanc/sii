@@ -4,6 +4,7 @@
 |---|---|---|
 | [architecture_reference.md](architecture_reference.md) | **Architecture de référence** : principes, niveaux ISA-95, zones et conduits, modèle type de déploiement (classes, fiche de brique, cycle de vie), décisions, écarts connus (§7). | Vivant : §7 à tenir à jour |
 | [modop_chaine_livraison.md](modop_chaine_livraison.md) | **Mode opératoire du chantier en cours** : chaîne de livraison locale (registre, images versionnées, dépôt, Ansible, services locaux, coupure d'internet), lots 0 à F et S, non-régression, procédure de déploiement HA. | En cours |
+| [dependances_internet.md](dependances_internet.md) | **Registre des dépendances à internet** : nœud, usage, voie, remplacement prévu. | Vivant : à tenir à jour |
 | [journal_exploitation.md](journal_exploitation.md) | **Toutes les interventions** sur la plateforme : date, nœud, action, raison, résultat, incidents. | Vivant : à compléter à chaque intervention |
 | [audit_fonctionnel.md](audit_fonctionnel.md) | Audit fonctionnel (2026-11-14), plan d'action, et suivi des corrections (§10). | Vivant : §10 mis à jour à chaque correction |
 | [specifications_fonctionnelles_rincage.pdf](specifications_fonctionnelles_rincage.pdf) | Procédé de rinçage : physique, logique de l'automate, sécurités, échanges Modbus et OPC-UA. | Référence |
