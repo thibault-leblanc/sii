@@ -372,3 +372,20 @@ dépendante d'Internet (NTS, 2 h pour se recaler) ; le FTP VLAN20 sert encore de
 | P6 (FUXA interroge directement le simulateur) | ⏸ | Conservé à la demande (projet fonctionnel) ; le pare-feu l'autorise. |
 | HA du cluster `conduite` | ⏸ | Attend pi52 (seconde instance VRRP). |
 | Règles de pare-feu bien plus larges que la matrice de flux | ⏸ | Audit de sécurité. |
+
+### 10.3 Schéma d'architecture (2026-11-26, lot S)
+
+`archi_plateforme.drawio` redessiné : pages Physique (réel), Logique (réel), Cible. Câblage confirmé par
+l'administrateur le 2026-11-26.
+
+| Constat | État | Traitement |
+|---|---|---|
+| S1 (port 4, pi32 absent) | ✅ | Port 4 → pi32 (trunk 10/20/30) ; pi51 est sur le **port 5**. |
+| S2 (VLAN30 sur le trunk de pi31) | ✅ | Trunk 10/20/30 confirmé ; la chaîne OPC-UA validée le prouve. |
+| S3 (port 1 `adm`, `srv1`) | ✅ | Port 2 vide, retiré de NetBox ; `srv1` n'existe pas, le port 5 porte pi51. |
+| S4 (`scada1` dans pi51) | ✅ | Le SCADA est réellement sur pi51 (cluster `conduite`) : dessiné ainsi. |
+| S5 (ni pi32, ni cluster, ni VIP, ni réplication) | ✅ | Dessinés sur la page Logique. |
+| S6 (poste en .49, flux non documentés) | ✅ | Poste en 192.168.1.26 côté WAN, flux entrants listés. |
+
+Reporté dans NetBox le 2026-11-26 (migration `2026-11-26_cablage_commutateur.py`) : câble pi51 → port 5, port 2
+retiré, points de câblage retirés de `a_verifier`.

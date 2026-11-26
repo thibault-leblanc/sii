@@ -3,7 +3,7 @@
     "nom_plateforme": "SII_PLATEFORME",
     "description": "Ontologie IaaC - Système d'Information Industriel. Synchronisée depuis NetBox (netbox/outils/vers_iaac.py) ; les champs ajoutés à la main sont conservés.",
     "source_de_verite": "NetBox (export : netbox/donnees/sii.yaml)",
-    "derniere_mise_a_jour": "2026-11-23"
+    "derniere_mise_a_jour": "2026-11-26"
   },
   "reseaux_globaux": {
     "VLAN10": {
@@ -67,12 +67,6 @@
           "vlan_id": "VLAN10",
           "ip": "192.168.10.90/24"
         },
-        "port2": {
-          "type": "physique",
-          "mode": "access",
-          "vlan_id": "VLAN10",
-          "description": "Accès VLAN10 (poste d'administration ?)"
-        },
         "port3": {
           "type": "physique",
           "mode": "trunk",
@@ -92,6 +86,16 @@
             "VLAN30"
           ],
           "description": "trunk pi32"
+        },
+        "port5": {
+          "type": "physique",
+          "mode": "trunk",
+          "vlans_autorises": [
+            "VLAN10",
+            "VLAN20",
+            "VLAN30"
+          ],
+          "description": "trunk pi51"
         },
         "port6": {
           "type": "physique",
@@ -313,7 +317,8 @@
             "VLAN10",
             "VLAN20",
             "VLAN30"
-          ]
+          ],
+          "liaison_physique": "commutateur/port5"
         },
         "eth0.10": {
           "type": "virtuelle",

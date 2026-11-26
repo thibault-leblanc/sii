@@ -12,6 +12,7 @@ Règles d'un script de migration :
 | Migration | Contenu |
 |---|---|
 | `2026-11-23_conduite_scada.py` | Champ `clusters` (plusieurs clusters par nœud), cluster `conduite`, poste d'administration côté WAN, service `scada` (192.168.30.10), passerelle VLAN30 et configurations versionnées de l'automate et du simulateur. |
+| `2026-11-26_cablage_commutateur.py` | Câblage confirmé par l'administrateur : port 5 en trunk 10/20/30 câblé à pi51, port 2 (vide) retiré. |
 
 Les changements ponctuels (une description, une IP) peuvent se faire dans l'interface de NetBox, suivis de
 `synchro.py`.

@@ -15,7 +15,7 @@
 
 | Interface | VLAN | IP | Câble |
 |---|---|---|---|
-| `eth0` | trunk 10, 20, 30 |  |  |
+| `eth0` | trunk 10, 20, 30 |  | commutateur/port5 |
 | `eth0.10` | 10 | 192.168.10.12/24 |  |
 | `eth0.20` | 20 |  |  |
 | `eth0.30` | 30 |  |  |
